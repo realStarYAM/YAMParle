@@ -236,7 +236,7 @@ Les composants visuels ne sauvegardent pas les phrases. `MainAACView` coordonne 
 
 **Ce qui ne l’a pas été :** compilation SwiftUI, exécution sur iPad, VoiceOver, Switch Control, rendu des SF Symbols, claviers flottant/matériel, animations, performance et sauvegarde après redémarrage. L’environnement est Linux et le dépôt fourni ne contient ni `.xcodeproj`, ni workspace, ni cible de tests Apple.
 
-Voir le [protocole de validation](../Tests/README.md) et les [instructions d’intégration](../README.md). Ne pas confondre parsing syntaxique, calcul de contraste et validation native.
+Voir le [protocole de validation](../Tests/VALIDATION.md) et les [instructions d’intégration](../README.md). Ne pas confondre parsing syntaxique, calcul de contraste et validation native.
 
 ### Risques préexistants à traiter avant une version de production
 

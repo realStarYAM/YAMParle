@@ -9,7 +9,7 @@ Application de communication alternative et améliorée (CAA/AAC) pour iPad, en 
 - [Écran principal SwiftUI](Views/MainAACView.swift)
 - [Composants réutilisables](Components/YAMDesignSystem.swift)
 - [Compositeur avec clavier iOS natif](Components/CommunicationComposer.swift)
-- [Checklist iPad et tests statiques](Tests/README.md)
+- [Checklist iPad et tests statiques](Tests/VALIDATION.md)
 
 ## Intégration dans Xcode
 
