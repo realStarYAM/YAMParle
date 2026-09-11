@@ -80,7 +80,7 @@ public struct AppTheme: Identifiable, Equatable, Hashable {
         accent: "#5551C9", darkAccent: "#B7B4FF", secondary: "#7074A5",
         background: "#F4F5FA", darkBackground: "#141722", darkSurface: "#202431",
         elevated: "#ECECF7", darkElevated: "#2C3042",
-        radius: 24, buttonRadius: 18, badge: "Iris"
+        radius: 18, buttonRadius: 13, badge: "Iris"
     )
 
     public static let dragonBall = make(
@@ -89,7 +89,7 @@ public struct AppTheme: Identifiable, Equatable, Hashable {
         accent: "#AD4706", darkAccent: "#FFB86C", secondary: "#2555A0",
         background: "#FFF7ED", darkBackground: "#131B2D", darkSurface: "#202C43",
         elevated: "#FCEBD9", darkElevated: "#2A3850",
-        radius: 22, buttonRadius: 16, design: .rounded, weight: .bold,
+        radius: 16, buttonRadius: 12, design: .rounded, weight: .bold,
         ornament: .orbit, badge: "Énergie"
     )
 
@@ -99,7 +99,7 @@ public struct AppTheme: Identifiable, Equatable, Hashable {
         accent: "#0067AC", darkAccent: "#8FCFFF", secondary: "#287A91",
         background: "#F0F5FA", darkBackground: "#121C27", darkSurface: "#202D3B",
         elevated: "#E4EEF7", darkElevated: "#2B3B4D",
-        radius: 12, buttonRadius: 10, ornament: .line, badge: "Fluent"
+        radius: 10, buttonRadius: 8, ornament: .line, badge: "Fluent"
     )
 
     public static let macOS = make(
@@ -108,7 +108,7 @@ public struct AppTheme: Identifiable, Equatable, Hashable {
         accent: "#245BC4", darkAccent: "#A6C2FF", secondary: "#6958AF",
         background: "#F3F3F6", darkBackground: "#19191F", darkSurface: "#28282F",
         elevated: "#EAEAF1", darkElevated: "#36363F",
-        radius: 26, buttonRadius: 20, badge: "Nacre"
+        radius: 18, buttonRadius: 14, badge: "Nacre"
     )
 
     public static let ubuntu = make(
@@ -117,7 +117,7 @@ public struct AppTheme: Identifiable, Equatable, Hashable {
         accent: "#AF401A", darkAccent: "#FFB397", secondary: "#753767",
         background: "#FBF4F7", darkBackground: "#251522", darkSurface: "#382333",
         elevated: "#F1E4ED", darkElevated: "#493143",
-        radius: 18, buttonRadius: 14, design: .rounded,
+        radius: 13, buttonRadius: 10, design: .rounded,
         ornament: .orbit, badge: "Aubergine"
     )
 
@@ -127,7 +127,7 @@ public struct AppTheme: Identifiable, Equatable, Hashable {
         accent: "#306C42", darkAccent: "#A5D7A8", secondary: "#59795C",
         background: "#F2F7F2", darkBackground: "#15201B", darkSurface: "#24342B",
         elevated: "#E3EEE4", darkElevated: "#32473A",
-        radius: 22, buttonRadius: 18, badge: "Sauge"
+        radius: 15, buttonRadius: 12, badge: "Sauge"
     )
 
     public static let dragon = make(
@@ -136,7 +136,7 @@ public struct AppTheme: Identifiable, Equatable, Hashable {
         accent: "#AC373D", darkAccent: "#FFADA7", secondary: "#926735",
         background: "#FAF4F0", darkBackground: "#21191B", darkSurface: "#342729",
         elevated: "#F1E5DE", darkElevated: "#493537",
-        radius: 16, buttonRadius: 12, weight: .semibold,
+        radius: 12, buttonRadius: 9, weight: .semibold,
         ornament: .line, badge: "Obsidienne"
     )
 

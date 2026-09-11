@@ -40,7 +40,7 @@ Les fonctions secondaires ne sont pas supprimées : dernier mot et plein écran 
 
 ### Adaptation à la fenêtre
 
-- À partir de **960 pt** de largeur, hors tailles de texte d’accessibilité : panneau des catégories de **248 pt**, grille adaptative à droite, défilements séparés des catégories et des phrases.
+- À partir de **960 pt** de largeur, hors tailles de texte d’accessibilité : panneau des catégories de **208 pt**, grille adaptative à droite, défilements séparés des catégories et des phrases.
 - En fenêtre étroite, portrait ou Split View : page verticale défilante, catégories horizontales. Une largeur régulière ne signifie pas « paysage ».
 - Sous **700 pt**, le bouton Parler passe sous le texte. En Dynamic Type d’accessibilité, la grille passe à une colonne et les catégories se choisissent dans une liste dépliable.
 - L’ouverture du clavier ne change pas la branche de disposition selon la hauteur. En disposition large, l’en-tête de navigation s’efface pendant la saisie pour libérer de la place, sans remplacer le compositeur. La barre native du clavier garde Parler/Arrêter et Masquer le clavier.
@@ -54,7 +54,7 @@ Les fonctions secondaires ne sont pas supprimées : dernier mot et plein écran 
 
 **Compositeur.** `TextEditor` natif, texte lisible, curseur iOS, sélection/correction/collage système. L’espace réservé « Que souhaitez-vous dire ? » ne reçoit pas les interactions et n’est pas lu une deuxième fois par VoiceOver.
 
-**Parler.** Accent plein, hauteur minimale 72 pt. Désactivé pour un message vide. Devient **Arrêter** pendant la lecture, y compris pendant une génération ElevenLabs en attente. Il ne change pas d’emplacement.
+**Parler.** Accent plein, hauteur minimale 56 pt — dominante, mais plus énorme que le reste des commandes. Désactivé pour un message vide. Devient **Arrêter** pendant la lecture, y compris pendant une génération ElevenLabs en attente. Il ne change pas d’emplacement.
 
 **Effacer.** Effacement immédiat, sans confirmation gênant la communication ; le même bouton devient **Rétablir**. Une nouvelle composition invalide ce rétablissement. Ce n’est pas un historique multi-niveaux.
 
@@ -83,6 +83,8 @@ Accès depuis Réglages → Communication. Liste des catégories du seul profil 
 Renommer garde l’identifiant et les phrases rattachées. Les erreurs de sauvegarde restent visibles dans la feuille. La suppression et le réordonnancement ne sont pas ajoutés ici : ils demandent une confirmation adaptée et une stratégie explicite pour les phrases rattachées.
 
 ### E. Réglages · implémenté
+
+La fenêtre s’ouvre en **carte centrée**, plus en feuille plein écran : `presentationSizing(.form)` sur iPadOS 18 et plus, contenu porté à 744 pt de large au maximum et centré, titre `.inline`, sections en rythme compact. Sur iPadOS 17, où les detents sont ignorées en largeur régulière, la largeur du contenu reste bornée à 744 pt et la feuille occupe la hauteur disponible. Les formulaires (nouvelle phrase, catégorie, recherche) gardent la feuille entière.
 
 Cinq groupes, sans fausse fonction de sauvegarde :
 
@@ -138,32 +140,40 @@ Les couleurs utilisent des fournisseurs `UIColor` adaptatifs : elles réagissent
 ### Typographie
 
 - Police système, donc SF sur iPad ; design `.default` ou `.rounded` selon le thème.
-- Identité et titre de catégorie : `.title2`, gras.
+- Identité et titre de catégorie : `.title3`, gras.
 - Message : `.title2`, medium, adaptable à Dynamic Type.
-- Texte de carte : `.title3`, semibold ; pas de limite arbitraire à deux lignes.
-- Commandes et catégories : `.body`, medium/semibold.
-- Aide : `.subheadline` ; métadonnées secondaires : `.caption`.
+- Texte de carte : `.body`, semibold ; pas de limite arbitraire à deux lignes.
+- Commandes et catégories : `.callout`, medium/semibold ; Parler garde `.body`.
+- Aide et libellés de section : `.footnote` ; métadonnées secondaires : `.caption2`.
 - Plein écran : base 64 pt avec `@ScaledMetric` ; le texte défile, il n’est pas réduit pour rentrer.
 - Pas de police décorative fantasy dans les phrases, y compris avec Dragon.
 
 ### Géométrie et rythme
 
+Les valeurs ci-dessous sont les jetons `YAMSpacing` et `YAMLayout` de `Components/YAMDesignSystem.swift`. La passe « compacte » les a réduites d’environ un tiers, sans toucher au plancher tactile : aucune cible ne descend sous **44 pt**.
+
 | Jeton | Valeur |
 |---|---|
-| Espacements | 8 / 12 / 16 / 24 / 28 pt |
-| Marge large / compacte | 28 / 16 pt |
-| Rayon panneau Classique | 24 pt, continu |
-| Rayon bouton Classique | 18 pt, continu |
-| Panneau catégorie | 248 pt de large |
-| Carte standard | minimum 200 pt de large, hauteur minimale 172 pt |
+| Espacements `tiny / small / medium / large / section` | 4 / 6 / 8 / 12 / 16 pt |
+| Marge de page large / compacte (`page` / `pageCompact`) | 18 / 12 pt |
+| Cible tactile minimale (`minimumTarget`) | 44 pt, jamais moins |
+| Rayon panneau Classique | 18 pt, continu |
+| Rayon bouton Classique | 13 pt, continu |
+| Panneau catégorie | 208 pt de large |
+| Carte standard | minimum 168 pt de large, hauteur minimale 92 pt |
+| Écart de grille | 10 pt |
 | Taille de carte choisie | 0,8 / 1 / 1,3 × largeur de base |
-| Commande principale | au moins 56 pt ; Parler au moins 72 pt |
-| Catégorie | au moins 60 pt de haut |
-| Options de carte | 48 × 56 pt |
+| Compositeur « Votre phrase » | champ de 64 pt de haut, respiration 14 pt |
+| Commande principale | au moins 44 pt ; Parler au moins 56 pt |
+| Catégorie | au moins 44 pt de haut |
+| Options de carte | 40 × 44 pt |
+| Ligne de réglages | 44 pt de contenu, icône de 28 pt |
+| Petites puces d’action (`chipHeight`) | 36 pt de contenu + marge du style `.bordered`, soit ≥ 44 pt visés |
+| Fenêtre Réglages | 744 pt de large au plus, contenu centré, hauteur adaptée |
 | Bordure standard | 1 pt ; sélection / contraste renforcé : 2 pt |
-| Ombre | noir 4,5 %, rayon 14 pt, décalage vertical 5 pt |
+| Ombre | noir 4,5 %, rayon 8 pt, décalage vertical 3 pt |
 
-La taille de carte modifie le nombre de colonnes, pas seulement l’icône. Les boutons adoptent une hauteur minimale plutôt qu’une hauteur fixe, pour accueillir les grands caractères.
+La taille de carte modifie le nombre de colonnes, pas seulement l’icône. Les boutons adoptent une hauteur minimale plutôt qu’une hauteur fixe, pour accueillir les grands caractères. Une carte de 168 pt au lieu de 200 pt fait tenir une colonne de plus sur un iPad Pro 11 pouces en paysage, donc plus de phrases visibles sans défilement.
 
 ### États et mouvement
 
@@ -184,12 +194,12 @@ Classique reste le point de départ. Chacun des six thèmes conserve son identif
 
 | Thème | Accent clair / sombre | Surfaces et ambiance | Forme / icône / décor |
 |---|---|---|---|
-| Dragon Ball | `#AD4706` / `#FFB86C` | Crème chaude / bleu martial profond | Rayons 22/16, arrondi, éclair, orbite discrète |
-| Windows | `#0067AC` / `#8FCFFF` | Gris bleu / ardoise bleue | Rayons 12/10, fenêtres SF, ligne nette |
-| macOS | `#245BC4` / `#A6C2FF` | Nacre / graphite neutre | Rayons 26/20, écran SF, halo léger |
-| Ubuntu | `#AF401A` / `#FFB397` | Rose aubergine / prune | Rayons 18/14, arrondi, motif circulaire SF, orbite |
-| Linux Mint | `#306C42` / `#A5D7A8` | Sauge pâle / forêt | Rayons 22/18, feuille SF, halo léger |
-| Dragon | `#AC373D` / `#FFADA7` | Pierre chaude / obsidienne rouge | Rayons 16/12, flamme SF, filet cuivré |
+| Dragon Ball | `#AD4706` / `#FFB86C` | Crème chaude / bleu martial profond | Rayons 16/12, arrondi, éclair, orbite discrète |
+| Windows | `#0067AC` / `#8FCFFF` | Gris bleu / ardoise bleue | Rayons 10/8, fenêtres SF, ligne nette |
+| macOS | `#245BC4` / `#A6C2FF` | Nacre / graphite neutre | Rayons 18/14, écran SF, halo léger |
+| Ubuntu | `#AF401A` / `#FFB397` | Rose aubergine / prune | Rayons 13/10, arrondi, motif circulaire SF, orbite |
+| Linux Mint | `#306C42` / `#A5D7A8` | Sauge pâle / forêt | Rayons 15/12, feuille SF, halo léger |
+| Dragon | `#AC373D` / `#FFADA7` | Pierre chaude / obsidienne rouge | Rayons 12/9, flamme SF, filet cuivré |
 
 Ce ne sont pas des fonds d’écran plaqués sur des boutons inchangés : palettes, surfaces, rayons, graisse des symboles, identité d’en-tête et accents décoratifs varient. Les icônes **sémantiques** Parler, Clavier, Recherche et les pictogrammes personnels ne sont volontairement pas remplacés par des personnages ou logos : on change leur traitement, pas leur signification.
 
