@@ -1,251 +1,154 @@
-//
-//  ThemeSelectionView.swift
-//  YAMParle
-//
-
 import SwiftUI
 import SwiftData
 
 struct ThemeSelectionView: View {
-    @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
-
-    @Bindable var themeManager = ThemeManager.shared
-    @Bindable var profileManager = ProfileManager.shared
+    @Environment(\.dynamicTypeSize) private var typeSize
+    @Bindable private var themeManager = ThemeManager.shared
+    @Bindable private var profileManager = ProfileManager.shared
     @Query(sort: \UserProfile.createdAt) private var profiles: [UserProfile]
 
-    @State private var showResetAlert: Bool = false
-
+    private var theme: AppTheme { themeManager.currentTheme }
     private var activeProfile: UserProfile? {
-        profiles.first(where: { $0.id == profileManager.activeProfileId }) ?? profiles.first
+        profiles.first { $0.id == profileManager.activeProfileId } ?? profiles.first
     }
 
     var body: some View {
-        List {
-            // Profile context header
-            Section {
-                HStack(spacing: 12) {
-                    ZStack {
-                        Circle()
-                            .fill(themeManager.currentTheme.accentColor.opacity(0.18))
-                            .frame(width: 44, height: 44)
-
-                        Image(systemName: "paintpalette.fill")
-                            .font(.title3)
-                            .foregroundColor(themeManager.currentTheme.accentColor)
-                    }
-
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Thème pour : \(activeProfile?.name ?? "Utilisateur")")
-                            .font(.headline)
-                        Text("Thème actif : \(themeManager.currentTheme.name)")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                    }
-
-                    Spacer()
-
-                    // Quick reset button
-                    Button {
-                        showResetAlert = true
-                    } label: {
-                        HStack(spacing: 4) {
-                            Image(systemName: "arrow.counterclockwise")
-                            Text("Classique")
+        ScrollView {
+            VStack(alignment: .leading, spacing: 24) {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Un espace qui vous ressemble.")
+                        .font(.system(.title, design: theme.fontDesign, weight: .bold))
+                        .foregroundStyle(theme.primaryTextColor)
+                    Text("Les mêmes repères, une autre ambiance. Le thème est enregistré pour \(activeProfile?.name ?? "votre profil").")
+                        .font(.body)
+                        .foregroundStyle(theme.secondaryTextColor)
+                    Picker("Apparence", selection: $themeManager.appearance) {
+                        ForEach(AppAppearance.allCases) { appearance in
+                            Text(appearance.title).tag(appearance)
                         }
-                        .font(.caption.weight(.bold))
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .background(Color.secondary.opacity(0.15))
-                        .clipShape(Capsule())
                     }
-                    .buttonStyle(.plain)
+                    .pickerStyle(.menu)
+                    .frame(minHeight: 56)
+                    Text("Clair, sombre ou automatique : ce choix s’applique à tous les profils sur cet appareil.")
+                        .font(.footnote)
+                        .foregroundStyle(theme.secondaryTextColor)
                 }
-                .padding(.vertical, 4)
-            } footer: {
-                Text("Chaque profil utilisateur conserve son propre thème visuel. Vos préférences sont sauvegardées automatiquement sur cet appareil.")
-            }
+                .padding(24)
+                .yamSurface(theme)
 
-            // List of all 7 themes
-            Section("Thèmes disponibles") {
-                ForEach(AppTheme.allThemes) { theme in
-                    themeCard(for: theme)
+                if let error = themeManager.saveError {
+                    Label(error, systemImage: "exclamationmark.triangle")
+                        .font(.body)
+                        .foregroundStyle(theme.primaryTextColor)
+                        .padding(16)
+                        .yamSurface(theme)
                 }
-            }
 
-            // Bouton réinitialiser au thème classique
-            Section {
-                Button(role: .destructive) {
-                    showResetAlert = true
-                } label: {
-                    HStack {
-                        Spacer()
-                        Image(systemName: "arrow.triangle.2.circlepath")
-                        Text("Réinitialiser au thème Classique")
-                            .fontWeight(.semibold)
-                        Spacer()
+                LazyVGrid(columns: typeSize.isAccessibilitySize ? [GridItem(.flexible())] : [GridItem(.adaptive(minimum: 290), spacing: 20)], spacing: 20) {
+                    ForEach(AppTheme.allThemes) { candidate in
+                        themeCard(candidate)
                     }
                 }
             }
+            .padding(24)
         }
-        .navigationTitle("Thèmes")
+        .background { YAMAmbientBackground(theme: theme) }
+        .navigationTitle("Thèmes et apparence")
         .navigationBarTitleDisplayMode(.inline)
-        .confirmationDialog(
-            "Réinitialiser le thème ?",
-            isPresented: $showResetAlert
-        ) {
-            Button("Réinitialiser au thème Classique", role: .destructive) {
-                themeManager.resetToClassic(profile: activeProfile, in: modelContext)
-            }
-            Button("Annuler", role: .cancel) { }
-        } message: {
-            Text("Voulez-vous rétablir le thème Classique par défaut pour ce profil ?")
-        }
+        .preferredColorScheme(themeManager.appearance.colorScheme)
     }
 
-    // MARK: - Theme Card Preview
-    @ViewBuilder
-    private func themeCard(for theme: AppTheme) -> some View {
-        let isSelected = theme.id == themeManager.activeThemeId
-
-        VStack(alignment: .leading, spacing: 12) {
-            // Header: Icon + Name + Badge + Selection Checkmark
-            HStack(spacing: 10) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .fill(theme.accentColor)
-                        .frame(width: 32, height: 32)
-
-                    Image(systemName: theme.icon)
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundColor(.white)
-                }
-
-                VStack(alignment: .leading, spacing: 2) {
-                    HStack(spacing: 6) {
-                        Text(theme.name)
-                            .font(.system(.headline, design: theme.fontDesign, weight: .bold))
-                            .foregroundColor(.primary)
-
-                        Text(theme.badgeName)
-                            .font(.system(size: 10, weight: .bold))
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(theme.accentColor.opacity(0.15))
-                            .foregroundColor(theme.accentColor)
-                            .clipShape(Capsule())
-                    }
-
-                    Text(theme.subtitle)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                        .lineLimit(2)
-                }
-
-                Spacer()
-
-                if isSelected {
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.title2)
-                        .foregroundColor(theme.accentColor)
-                }
-            }
-
-            // Visual Preview Canvas
-            ZStack {
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(theme.backgroundColor)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .strokeBorder(theme.borderColor, lineWidth: theme.borderWidth)
-                    )
-
+    private func themeCard(_ candidate: AppTheme) -> some View {
+        let selected = candidate.id == themeManager.activeThemeId
+        return Button {
+            YAMFeedback.selection()
+            themeManager.setTheme(id: candidate.id, profile: activeProfile, in: modelContext)
+        } label: {
+            VStack(alignment: .leading, spacing: 16) {
+                ThemeMiniature(theme: candidate)
+                    .accessibilityHidden(true)
                 HStack(spacing: 12) {
-                    // Mini Mock AAC Button
-                    HStack(spacing: 8) {
-                        ZStack {
-                            Circle()
-                                .fill(theme.accentColor.opacity(0.2))
-                                .frame(width: 32, height: 32)
-
-                            Image(systemName: "bubble.left.fill")
-                                .font(.caption.weight(.bold))
-                                .foregroundColor(theme.accentColor)
-                        }
-
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("Bonjour")
-                                .font(.system(.subheadline, design: theme.fontDesign, weight: .bold))
-                                .foregroundColor(theme.primaryTextColor)
-                            Text("AAC")
-                                .font(.caption2)
-                                .foregroundColor(theme.secondaryTextColor)
-                        }
-                    }
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 8)
-                    .background(theme.cardBackground)
-                    .clipShape(RoundedRectangle(cornerRadius: theme.cornerRadius / 1.5, style: .continuous))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: theme.cornerRadius / 1.5, style: .continuous)
-                            .strokeBorder(theme.borderColor, lineWidth: 1)
-                    )
-                    .shadow(color: theme.shadowColor, radius: 4, y: 2)
-
-                    Spacer()
-
-                    // Palette circles
-                    HStack(spacing: 6) {
-                        ForEach(0..<theme.previewPalette.count, id: \.self) { i in
-                            Circle()
-                                .fill(theme.previewPalette[i])
-                                .frame(width: 18, height: 18)
-                                .overlay(
-                                    Circle().stroke(Color.white.opacity(0.4), lineWidth: 1)
-                                )
-                        }
-                    }
+                    Image(systemName: candidate.icon)
+                        .font(.title2.weight(candidate.iconWeight))
+                        .foregroundStyle(candidate.accentColor)
+                    Text(candidate.name)
+                        .font(.system(.title3, design: candidate.fontDesign, weight: .semibold))
+                    Spacer(minLength: 0)
+                    Image(systemName: selected ? "checkmark.circle.fill" : "circle")
+                        .foregroundStyle(candidate.accentColor)
                 }
-                .padding(10)
+                Text(candidate.subtitle)
+                    .font(.body)
+                    .foregroundStyle(candidate.secondaryTextColor)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text(selected ? "Thème actif" : "Choisir ce thème")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(candidate.accentColor)
             }
-            .frame(height: 64)
-
-            // Bouton Appliquer
-            Button {
-                themeManager.setTheme(id: theme.id, profile: activeProfile, in: modelContext)
-            } label: {
-                HStack {
-                    Spacer()
-                    if isSelected {
-                        Label("Thème actif", systemImage: "checkmark")
-                            .font(.subheadline.weight(.bold))
-                            .foregroundColor(theme.accentColor)
-                    } else {
-                        Text("Appliquer le thème \(theme.name)")
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundColor(.white)
-                    }
-                    Spacer()
-                }
-                .frame(height: 38)
-                .background(
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .fill(isSelected ? theme.accentColor.opacity(0.12) : theme.accentColor)
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .strokeBorder(isSelected ? theme.accentColor : Color.clear, lineWidth: 1)
-                )
-            }
-            .buttonStyle(.plain)
+            .foregroundStyle(candidate.primaryTextColor)
+            .padding(20)
+            .yamSurface(candidate, selected: selected)
         }
-        .padding(.vertical, 6)
+        .buttonStyle(.yamPress)
+        .accessibilityLabel("\(candidate.name). \(candidate.subtitle)")
+        .accessibilityValue(selected ? "Thème actif" : "Non sélectionné")
+        .accessibilityAddTraits(selected ? [.isSelected] : [])
+        .accessibilityHint("Applique ce thème à votre profil sans changer la disposition.")
+    }
+}
+
+struct ThemeMiniature: View {
+    let theme: AppTheme
+
+    var body: some View {
+        VStack(spacing: 12) {
+            HStack(spacing: 12) {
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(theme.secondaryTextColor.opacity(0.35))
+                    .frame(height: 8)
+                Text("Parler")
+                    .font(.caption.weight(.semibold))
+                    .padding(.horizontal, 14).padding(.vertical, 10)
+                    .foregroundStyle(theme.onAccentColor)
+                    .background(theme.accentColor, in: RoundedRectangle(cornerRadius: theme.buttonCornerRadius / 2))
+            }
+            .padding(12)
+            .background(theme.cardBackground, in: RoundedRectangle(cornerRadius: theme.cornerRadius / 2))
+            HStack(spacing: 10) {
+                VStack(spacing: 8) {
+                    ForEach(0..<3) { index in
+                        RoundedRectangle(cornerRadius: 4)
+                            .fill(index == 0 ? theme.accentColor.opacity(0.3) : theme.secondaryTextColor.opacity(0.15))
+                            .frame(height: 8)
+                    }
+                }
+                .frame(width: 40)
+                miniaturePhrase("Bonjour", symbol: "hand.wave")
+                miniaturePhrase("Merci", symbol: "heart")
+            }
+        }
+        .padding(16)
+        .background { YAMAmbientBackground(theme: theme) }
+        .clipShape(RoundedRectangle(cornerRadius: theme.cornerRadius * 0.7))
+    }
+
+    private func miniaturePhrase(_ title: String, symbol: String) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Image(systemName: symbol)
+                .font(.body.weight(theme.iconWeight))
+                .foregroundStyle(theme.accentColor)
+            Text(title)
+                .font(.caption.weight(.medium))
+                .foregroundStyle(theme.primaryTextColor)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(10)
+        .background(theme.cardBackground, in: RoundedRectangle(cornerRadius: theme.cornerRadius / 2))
     }
 }
 
 #Preview {
-    NavigationStack {
-        ThemeSelectionView()
-    }
-    .modelContainer(for: [UserProfile.self, AACCategory.self, AACItem.self], inMemory: true)
+    NavigationStack { ThemeSelectionView() }
+        .modelContainer(for: [UserProfile.self, AACCategory.self, AACItem.self], inMemory: true)
 }

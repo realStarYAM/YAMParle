@@ -14,16 +14,16 @@ struct DataSeedService {
             let existingCategories = try context.fetch(categoryDescriptor)
 
             // If empty or older categories don't have the new conversation category, seed
-            let hasConversation = existingCategories.contains(where: { $0.id == "cat_conversation" })
+            let hasConversation = existingCategories.contains(where: { $0.id == "cat_conversation" && $0.userProfileId == "default_user" })
             if existingCategories.isEmpty || !hasConversation {
                 // Delete previous default seeds if updating schema
                 if !hasConversation && !existingCategories.isEmpty {
-                    for cat in existingCategories where !cat.isCustom {
+                    for cat in existingCategories where !cat.isCustom && cat.userProfileId == "default_user" {
                         context.delete(cat)
                     }
                     let itemDescriptor = FetchDescriptor<AACItem>()
                     let existingItems = try context.fetch(itemDescriptor)
-                    for item in existingItems where !item.isCustom {
+                    for item in existingItems where !item.isCustom && item.userProfileId == "default_user" {
                         context.delete(item)
                     }
                 }

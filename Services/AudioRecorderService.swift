@@ -18,6 +18,7 @@ final class AudioRecorderService: NSObject, AVAudioPlayerDelegate, AVAudioRecord
 
     private var audioRecorder: AVAudioRecorder?
     private var audioPlayer: AVAudioPlayer?
+    private var playbackCompletion: (() -> Void)?
     private var timer: Timer?
 
     private var recordingsDirectory: URL {
@@ -93,11 +94,13 @@ final class AudioRecorderService: NSObject, AVAudioPlayerDelegate, AVAudioRecord
 
     func playAudio(fileName: String, onFinished: (() -> Void)? = nil) {
         stopPlayback()
+        playbackCompletion = onFinished
+        errorMessage = nil
 
         let fileURL = recordingsDirectory.appendingPathComponent(fileName)
         guard FileManager.default.fileExists(atPath: fileURL.path) else {
             errorMessage = "Fichier audio introuvable"
-            onFinished?()
+            stopPlayback()
             return
         }
 
@@ -106,28 +109,33 @@ final class AudioRecorderService: NSObject, AVAudioPlayerDelegate, AVAudioRecord
             try session.setCategory(.playback, mode: .default)
             try session.setActive(true)
 
-            audioPlayer = try AVAudioPlayer(contentsOf: fileURL)
-            audioPlayer?.delegate = self
-            audioPlayer?.prepareToPlay()
-            audioPlayer?.play()
+            let player = try AVAudioPlayer(contentsOf: fileURL)
+            audioPlayer = player
+            player.delegate = self
+            guard player.prepareToPlay(), player.play() else {
+                errorMessage = "Impossible de démarrer la lecture du fichier audio"
+                stopPlayback()
+                return
+            }
 
             isPlaying = true
             currentlyPlayingFileName = fileName
         } catch {
             errorMessage = "Impossible de lire le fichier: \(error.localizedDescription)"
-            isPlaying = false
-            currentlyPlayingFileName = nil
-            onFinished?()
+            stopPlayback()
         }
     }
 
     func stopPlayback() {
-        if let player = audioPlayer, player.isPlaying {
-            player.stop()
-        }
+        let player = audioPlayer
+        let completion = playbackCompletion
         audioPlayer = nil
+        playbackCompletion = nil
+        player?.delegate = nil
+        player?.stop()
         isPlaying = false
         currentlyPlayingFileName = nil
+        completion?()
     }
 
     func fileExists(fileName: String) -> Bool {
@@ -149,8 +157,19 @@ final class AudioRecorderService: NSObject, AVAudioPlayerDelegate, AVAudioRecord
 
     func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
         DispatchQueue.main.async {
-            self.isPlaying = false
-            self.currentlyPlayingFileName = nil
+            guard self.audioPlayer === player else { return }
+            if !flag {
+                self.errorMessage = "La lecture du fichier audio a échoué"
+            }
+            self.stopPlayback()
+        }
+    }
+
+    func audioPlayerDecodeErrorDidOccur(_ player: AVAudioPlayer, error: Error?) {
+        DispatchQueue.main.async {
+            guard self.audioPlayer === player else { return }
+            self.errorMessage = error?.localizedDescription ?? "Impossible de décoder le fichier audio"
+            self.stopPlayback()
         }
     }
 }

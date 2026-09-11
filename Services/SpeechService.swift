@@ -12,6 +12,8 @@ final class SpeechService: NSObject, AVSpeechSynthesizerDelegate {
     static let shared = SpeechService()
 
     private let synthesizer = AVSpeechSynthesizer()
+    private var activeRequestID: UUID?
+    private var activeUtterance: AVSpeechUtterance?
 
     var isSpeaking: Bool = false
     var currentSpokenText: String = ""
@@ -105,97 +107,87 @@ final class SpeechService: NSObject, AVSpeechSynthesizerDelegate {
 
     // MARK: - Smart Unified Speak (with Offline fallback)
     func speakItem(_ item: AACItem) {
-        // 1. Personal microphone recording
-        if item.audioSourceType == "recording", let fileName = item.localAudioFileName, !fileName.isEmpty {
-            if AudioRecorderService.shared.fileExists(fileName: fileName) {
-                isSpeaking = true
-                currentSpokenText = item.text
-                AudioRecorderService.shared.playAudio(fileName: fileName) { [weak self] in
-                    self?.isSpeaking = false
-                    self?.currentSpokenText = ""
-                }
-                return
-            }
+        let requestID = beginRequest(text: item.text)
+
+        if item.audioSourceType == "recording", let fileName = item.localAudioFileName, !fileName.isEmpty,
+           AudioRecorderService.shared.fileExists(fileName: fileName) {
+            AudioRecorderService.shared.playAudio(fileName: fileName, onFinished: completion(for: requestID))
+            return
         }
 
-        // 2. ElevenLabs
-        if item.audioSourceType == "elevenlabs" {
-            // Check if cached locally
-            if let cached = ElevenLabsService.shared.getCachedFile(for: item.spokenText) {
-                isSpeaking = true
-                currentSpokenText = item.text
-                ElevenLabsService.shared.playCachedItem(cached) { [weak self] in
-                    self?.isSpeaking = false
-                    self?.currentSpokenText = ""
-                }
-                return
-            } else if ElevenLabsService.shared.hasApiKey {
-                // Attempt to stream/cache online
-                ElevenLabsService.shared.generateAndCache(text: item.spokenText) { [weak self] result in
-                    guard let self = self else { return }
-                    switch result {
-                    case .success(let cached):
-                        self.isSpeaking = true
-                        self.currentSpokenText = item.text
-                        ElevenLabsService.shared.playCachedItem(cached) { [weak self] in
-                            self?.isSpeaking = false
-                            self?.currentSpokenText = ""
-                        }
-                    case .failure:
-                        // Offline or error fallback: never block communication!
-                        self.speakAppleVoice(text: item.spokenText)
-                    }
-                }
-                return
-            }
+        if item.audioSourceType == "elevenlabs", speakElevenLabs(text: item.spokenText, requestID: requestID) {
+            return
         }
 
-        // 3. Apple Voice fallback or primary
-        speakAppleVoice(text: item.spokenText)
+        speakAppleVoice(text: item.spokenText, requestID: requestID)
     }
 
     func speak(text: String) {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
+        let requestID = beginRequest(text: trimmed)
 
-        // Check if ElevenLabs is the preferred engine and has a cached file or online capability
-        if preferredEngine == "elevenlabs" {
-            if let cached = ElevenLabsService.shared.getCachedFile(for: trimmed) {
-                isSpeaking = true
-                currentSpokenText = trimmed
-                ElevenLabsService.shared.playCachedItem(cached) { [weak self] in
-                    self?.isSpeaking = false
-                    self?.currentSpokenText = ""
-                }
-                return
-            } else if ElevenLabsService.shared.hasApiKey {
-                ElevenLabsService.shared.generateAndCache(text: trimmed) { [weak self] result in
-                    guard let self = self else { return }
-                    switch result {
-                    case .success(let cached):
-                        self.isSpeaking = true
-                        self.currentSpokenText = trimmed
-                        ElevenLabsService.shared.playCachedItem(cached) { [weak self] in
-                            self?.isSpeaking = false
-                            self?.currentSpokenText = ""
-                        }
-                    case .failure:
-                        self.speakAppleVoice(text: trimmed)
-                    }
-                }
-                return
-            }
+        if preferredEngine == "elevenlabs", speakElevenLabs(text: trimmed, requestID: requestID) {
+            return
         }
 
-        speakAppleVoice(text: trimmed)
+        speakAppleVoice(text: trimmed, requestID: requestID)
     }
 
-    private func speakAppleVoice(text: String, rateMultiplier: Float = 1.0) {
-        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
+    private func beginRequest(text: String) -> UUID {
+        stop()
+        let requestID = UUID()
+        activeRequestID = requestID
+        // Pending generation is stoppable too, before any audio starts.
+        isSpeaking = true
+        currentSpokenText = text
+        return requestID
+    }
 
-        if synthesizer.isSpeaking {
-            synthesizer.stopSpeaking(at: .immediate)
+    private func finishRequest(_ requestID: UUID) {
+        guard activeRequestID == requestID else { return }
+        activeRequestID = nil
+        activeUtterance = nil
+        isSpeaking = false
+        currentSpokenText = ""
+    }
+
+    private func completion(for requestID: UUID) -> () -> Void {
+        { [weak self] in
+            Task { @MainActor in
+                self?.finishRequest(requestID)
+            }
+        }
+    }
+
+    private func speakElevenLabs(text: String, requestID: UUID) -> Bool {
+        if let cached = ElevenLabsService.shared.getCachedFile(for: text) {
+            ElevenLabsService.shared.playCachedItem(cached, onFinished: completion(for: requestID))
+            return true
+        }
+        guard ElevenLabsService.shared.hasApiKey else { return false }
+
+        ElevenLabsService.shared.generateAndCache(text: text) { [weak self] result in
+            Task { @MainActor in
+                // Let generation populate the cache, but never revive interrupted speech.
+                guard let self = self, self.activeRequestID == requestID else { return }
+                switch result {
+                case .success(let cached):
+                    ElevenLabsService.shared.playCachedItem(cached, onFinished: self.completion(for: requestID))
+                case .failure:
+                    self.speakAppleVoice(text: text, requestID: requestID)
+                }
+            }
+        }
+        return true
+    }
+
+    private func speakAppleVoice(text: String, requestID: UUID, rateMultiplier: Float = 1.0) {
+        guard activeRequestID == requestID else { return }
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            finishRequest(requestID)
+            return
         }
 
         setupAudioSession()
@@ -214,15 +206,17 @@ final class SpeechService: NSObject, AVSpeechSynthesizerDelegate {
         utterance.volume = min(max(volume, 0.0), 1.0)
 
         currentSpokenText = trimmed
+        activeUtterance = utterance
         synthesizer.speak(utterance)
     }
 
     func stop() {
-        if synthesizer.isSpeaking {
-            synthesizer.stopSpeaking(at: .immediate)
-            isSpeaking = false
-            currentSpokenText = ""
-        }
+        // Invalidate identities before stopping engines, which can deliver callbacks.
+        activeRequestID = nil
+        activeUtterance = nil
+        isSpeaking = false
+        currentSpokenText = ""
+        synthesizer.stopSpeaking(at: .immediate)
         ElevenLabsService.shared.stopPlayback()
         AudioRecorderService.shared.stopPlayback()
     }
@@ -230,22 +224,29 @@ final class SpeechService: NSObject, AVSpeechSynthesizerDelegate {
     // MARK: - AVSpeechSynthesizerDelegate
 
     nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didStart utterance: AVSpeechUtterance) {
+        let utteranceID = ObjectIdentifier(utterance)
         Task { @MainActor in
+            guard let activeUtterance = self.activeUtterance,
+                  ObjectIdentifier(activeUtterance) == utteranceID else { return }
             self.isSpeaking = true
         }
     }
 
     nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
-        Task { @MainActor in
-            self.isSpeaking = false
-            self.currentSpokenText = ""
-        }
+        finishUtterance(utterance)
     }
 
     nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didCancel utterance: AVSpeechUtterance) {
+        finishUtterance(utterance)
+    }
+
+    private nonisolated func finishUtterance(_ utterance: AVSpeechUtterance) {
+        let utteranceID = ObjectIdentifier(utterance)
         Task { @MainActor in
-            self.isSpeaking = false
-            self.currentSpokenText = ""
+            guard let activeUtterance = self.activeUtterance,
+                  ObjectIdentifier(activeUtterance) == utteranceID,
+                  let requestID = self.activeRequestID else { return }
+            self.finishRequest(requestID)
         }
     }
 }
