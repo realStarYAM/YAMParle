@@ -15,13 +15,13 @@ struct ThemeSelectionView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 24) {
-                VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: YAMSpacing.large) {
+                VStack(alignment: .leading, spacing: YAMSpacing.small) {
                     Text("Un espace qui vous ressemble.")
-                        .font(.system(.title, design: theme.fontDesign, weight: .bold))
+                        .font(.system(.title3, design: theme.fontDesign, weight: .bold))
                         .foregroundStyle(theme.primaryTextColor)
                     Text("Les mêmes repères, une autre ambiance. Le thème est enregistré pour \(activeProfile?.name ?? "votre profil").")
-                        .font(.body)
+                        .font(.subheadline)
                         .foregroundStyle(theme.secondaryTextColor)
                     Picker("Apparence", selection: $themeManager.appearance) {
                         ForEach(AppAppearance.allCases) { appearance in
@@ -29,29 +29,32 @@ struct ThemeSelectionView: View {
                         }
                     }
                     .pickerStyle(.menu)
-                    .frame(minHeight: 56)
+                    .frame(minHeight: YAMSpacing.minimumTarget)
                     Text("Clair, sombre ou automatique : ce choix s’applique à tous les profils sur cet appareil.")
-                        .font(.footnote)
+                        .font(.caption)
                         .foregroundStyle(theme.secondaryTextColor)
                 }
-                .padding(24)
+                .padding(YAMSpacing.large)
+                .frame(maxWidth: YAMLayout.windowContentWidth, alignment: .leading)
                 .yamSurface(theme)
 
                 if let error = themeManager.saveError {
                     Label(error, systemImage: "exclamationmark.triangle")
-                        .font(.body)
+                        .font(.callout)
                         .foregroundStyle(theme.primaryTextColor)
-                        .padding(16)
+                        .padding(YAMSpacing.medium)
                         .yamSurface(theme)
                 }
 
-                LazyVGrid(columns: typeSize.isAccessibilitySize ? [GridItem(.flexible())] : [GridItem(.adaptive(minimum: 290), spacing: 20)], spacing: 20) {
+                LazyVGrid(columns: typeSize.isAccessibilitySize ? [GridItem(.flexible())] : [GridItem(.adaptive(minimum: 212), spacing: YAMSpacing.medium)], spacing: YAMSpacing.medium) {
                     ForEach(AppTheme.allThemes) { candidate in
                         themeCard(candidate)
                     }
                 }
             }
-            .padding(24)
+            .padding(YAMSpacing.large)
+            .frame(maxWidth: YAMLayout.windowContentWidth)
+            .frame(maxWidth: .infinity)
         }
         .background { YAMAmbientBackground(theme: theme) }
         .navigationTitle("Thèmes et apparence")
@@ -65,29 +68,30 @@ struct ThemeSelectionView: View {
             YAMFeedback.selection()
             themeManager.setTheme(id: candidate.id, profile: activeProfile, in: modelContext)
         } label: {
-            VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: YAMSpacing.medium) {
                 ThemeMiniature(theme: candidate)
                     .accessibilityHidden(true)
-                HStack(spacing: 12) {
+                HStack(spacing: YAMSpacing.small) {
                     Image(systemName: candidate.icon)
-                        .font(.title2.weight(candidate.iconWeight))
+                        .font(.body.weight(candidate.iconWeight))
                         .foregroundStyle(candidate.accentColor)
                     Text(candidate.name)
-                        .font(.system(.title3, design: candidate.fontDesign, weight: .semibold))
+                        .font(.system(.body, design: candidate.fontDesign, weight: .semibold))
                     Spacer(minLength: 0)
                     Image(systemName: selected ? "checkmark.circle.fill" : "circle")
+                        .font(.callout)
                         .foregroundStyle(candidate.accentColor)
                 }
                 Text(candidate.subtitle)
-                    .font(.body)
+                    .font(.footnote)
                     .foregroundStyle(candidate.secondaryTextColor)
                     .fixedSize(horizontal: false, vertical: true)
                 Text(selected ? "Thème actif" : "Choisir ce thème")
-                    .font(.subheadline.weight(.semibold))
+                    .font(.caption.weight(.semibold))
                     .foregroundStyle(candidate.accentColor)
             }
             .foregroundStyle(candidate.primaryTextColor)
-            .padding(20)
+            .padding(YAMSpacing.large)
             .yamSurface(candidate, selected: selected)
         }
         .buttonStyle(.yamPress)
@@ -102,48 +106,48 @@ struct ThemeMiniature: View {
     let theme: AppTheme
 
     var body: some View {
-        VStack(spacing: 12) {
-            HStack(spacing: 12) {
-                RoundedRectangle(cornerRadius: 4)
+        VStack(spacing: 8) {
+            HStack(spacing: 8) {
+                RoundedRectangle(cornerRadius: 3)
                     .fill(theme.secondaryTextColor.opacity(0.35))
-                    .frame(height: 8)
+                    .frame(height: 6)
                 Text("Parler")
-                    .font(.caption.weight(.semibold))
-                    .padding(.horizontal, 14).padding(.vertical, 10)
+                    .font(.caption2.weight(.semibold))
+                    .padding(.horizontal, 9).padding(.vertical, 6)
                     .foregroundStyle(theme.onAccentColor)
                     .background(theme.accentColor, in: RoundedRectangle(cornerRadius: theme.buttonCornerRadius / 2))
             }
-            .padding(12)
+            .padding(8)
             .background(theme.cardBackground, in: RoundedRectangle(cornerRadius: theme.cornerRadius / 2))
-            HStack(spacing: 10) {
-                VStack(spacing: 8) {
+            HStack(spacing: 7) {
+                VStack(spacing: 6) {
                     ForEach(0..<3) { index in
-                        RoundedRectangle(cornerRadius: 4)
+                        RoundedRectangle(cornerRadius: 3)
                             .fill(index == 0 ? theme.accentColor.opacity(0.3) : theme.secondaryTextColor.opacity(0.15))
-                            .frame(height: 8)
+                            .frame(height: 6)
                     }
                 }
-                .frame(width: 40)
+                .frame(width: 30)
                 miniaturePhrase("Bonjour", symbol: "hand.wave")
                 miniaturePhrase("Merci", symbol: "heart")
             }
         }
-        .padding(16)
+        .padding(YAMSpacing.medium)
         .background { YAMAmbientBackground(theme: theme) }
         .clipShape(RoundedRectangle(cornerRadius: theme.cornerRadius * 0.7))
     }
 
     private func miniaturePhrase(_ title: String, symbol: String) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 6) {
             Image(systemName: symbol)
-                .font(.body.weight(theme.iconWeight))
+                .font(.caption.weight(theme.iconWeight))
                 .foregroundStyle(theme.accentColor)
             Text(title)
-                .font(.caption.weight(.medium))
+                .font(.caption2.weight(.medium))
                 .foregroundStyle(theme.primaryTextColor)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(10)
+        .padding(7)
         .background(theme.cardBackground, in: RoundedRectangle(cornerRadius: theme.cornerRadius / 2))
     }
 }

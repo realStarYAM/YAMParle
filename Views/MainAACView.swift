@@ -37,6 +37,14 @@ struct MainAACView: View {
             case .edit(let item): return "edit-\(item.id)"
             }
         }
+
+        /// Les écrans de gestion s’ouvrent en fenêtre centrée, les formulaires en feuille entière.
+        var sheetKind: YAMSheetKind {
+            switch self {
+            case .settings, .profiles: return .window
+            case .search, .newPhrase, .savePhrase, .newCategory, .edit: return .sheet
+            }
+        }
     }
 
     private var theme: AppTheme { themeManager.currentTheme }
@@ -59,7 +67,7 @@ struct MainAACView: View {
     }
     private var columns: [GridItem] {
         if typeSize.isAccessibilitySize { return [GridItem(.flexible())] }
-        return [GridItem(.adaptive(minimum: 200 * min(max(gridCardSize, 0.8), 1.3)), spacing: 16, alignment: .top)]
+        return [GridItem(.adaptive(minimum: YAMLayout.gridCardMinWidth * min(max(gridCardSize, 0.8), 1.3)), spacing: YAMLayout.gridSpacing, alignment: .top)]
     }
 
     var body: some View {
@@ -70,32 +78,32 @@ struct MainAACView: View {
 
                 Group {
                     if wide {
-                        VStack(spacing: 24) {
+                        VStack(spacing: YAMSpacing.large) {
                             if !isEditorFocused { header }
                             composer(compact: false)
-                            HStack(alignment: .top, spacing: 24) {
-                                categorySidebar.frame(width: 248)
-                                VStack(alignment: .leading, spacing: 16) {
+                            HStack(alignment: .top, spacing: YAMSpacing.large) {
+                                categorySidebar.frame(width: YAMLayout.categorySidebarWidth)
+                                VStack(alignment: .leading, spacing: YAMSpacing.medium) {
                                     libraryHeader
                                     ScrollView {
                                         phraseGrid
-                                            .padding(.bottom, 16)
+                                            .padding(.bottom, YAMSpacing.medium)
                                     }
                                 }
                                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                             }
                         }
-                        .padding(28)
+                        .padding(YAMSpacing.page)
                     } else {
                         ScrollView {
-                            VStack(alignment: .leading, spacing: 24) {
+                            VStack(alignment: .leading, spacing: YAMSpacing.large) {
                                 header
                                 composer(compact: compactComposer)
                                 compactCategories
                                 libraryHeader
                                 phraseGrid
                             }
-                            .padding(16)
+                            .padding(YAMSpacing.pageCompact)
                         }
                         .scrollDismissesKeyboard(.interactively)
                     }
@@ -113,8 +121,7 @@ struct MainAACView: View {
             }
             .sheet(item: $sheet, onDismiss: presentPendingEditor) { destination in
                 sheetContent(destination)
-                    .presentationDetents([.large])
-                    .presentationDragIndicator(.visible)
+                    .yamSheetPresentation(destination.sheetKind)
                     .preferredColorScheme(themeManager.appearance.colorScheme)
             }
             .fullScreenCover(isPresented: $showingFullScreen) {
@@ -146,13 +153,13 @@ struct MainAACView: View {
 
     private var header: some View {
         ViewThatFits(in: .horizontal) {
-            HStack(spacing: 16) {
+            HStack(spacing: YAMSpacing.large) {
                 branding
-                Spacer(minLength: 16)
+                Spacer(minLength: YAMSpacing.large)
                 profileMenu
                 headerActions
             }
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: YAMSpacing.medium) {
                 branding
                 profileMenu
                 headerActions
@@ -161,19 +168,19 @@ struct MainAACView: View {
     }
 
     private var branding: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: YAMSpacing.medium) {
             Image(systemName: theme.icon)
-                .font(.title2.weight(theme.iconWeight))
+                .font(.body.weight(theme.iconWeight))
                 .foregroundStyle(theme.onAccentColor)
-                .frame(width: 48, height: 48)
+                .frame(width: 32, height: 32)
                 .background(theme.accentColor, in: RoundedRectangle(cornerRadius: theme.buttonCornerRadius))
                 .accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 1) {
                 Text("YAMParle")
-                    .font(.system(.title2, design: theme.fontDesign, weight: .bold))
+                    .font(.system(.title3, design: theme.fontDesign, weight: .bold))
                     .foregroundStyle(theme.primaryTextColor)
                 Text("À votre rythme.")
-                    .font(.subheadline)
+                    .font(.footnote)
                     .foregroundStyle(theme.secondaryTextColor)
             }
             .fixedSize(horizontal: true, vertical: false)
@@ -193,23 +200,24 @@ struct MainAACView: View {
             Divider()
             Button { sheet = .profiles } label: { Label("Gérer les profils", systemImage: "person.2") }
         } label: {
-            HStack(spacing: 10) {
+            HStack(spacing: YAMSpacing.small) {
                 if let data = activeProfile?.avatarImageData, let image = UIImage(data: data) {
                     Image(uiImage: image)
                         .resizable().scaledToFill()
-                        .frame(width: 32, height: 32).clipShape(Circle())
+                        .frame(width: 24, height: 24).clipShape(Circle())
                 } else {
                     Image(systemName: activeProfile?.avatarSymbol ?? "person.crop.circle")
-                        .font(.title2)
+                        .font(.body)
                         .foregroundStyle(theme.accentColor)
                 }
                 Text(activeProfile?.name ?? "Utilisateur par défaut")
-                    .font(.body.weight(.medium))
-                Image(systemName: "chevron.down").font(.caption.weight(.bold))
+                    .font(.callout.weight(.medium))
+                    .lineLimit(1)
+                Image(systemName: "chevron.down").font(.caption2.weight(.bold))
             }
             .foregroundStyle(theme.primaryTextColor)
-            .padding(.horizontal, 16)
-            .frame(minHeight: 56)
+            .padding(.horizontal, 10)
+            .frame(minHeight: YAMSpacing.minimumTarget)
             .yamSurface(theme)
         }
         .accessibilityLabel("Profil actif : \(activeProfile?.name ?? "Utilisateur par défaut")")
@@ -218,8 +226,8 @@ struct MainAACView: View {
 
     private var headerActions: some View {
         ViewThatFits(in: .horizontal) {
-            HStack(spacing: 12) { searchButton; settingsButton }
-            VStack(alignment: .leading, spacing: 12) { searchButton; settingsButton }
+            HStack(spacing: YAMSpacing.medium) { searchButton; settingsButton }
+            VStack(alignment: .leading, spacing: YAMSpacing.small) { searchButton; settingsButton }
         }
     }
 
@@ -252,45 +260,46 @@ struct MainAACView: View {
     }
 
     private var categorySidebar: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: YAMSpacing.small) {
             Text("Catégories")
-                .font(.headline)
-                .foregroundStyle(theme.primaryTextColor)
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(theme.secondaryTextColor)
                 .accessibilityAddTraits(.isHeader)
-                .padding(.horizontal, 12)
+                .padding(.horizontal, 4)
             ScrollView {
-                VStack(spacing: 8) {
+                VStack(spacing: YAMSpacing.small) {
                     ForEach(userCategories) { category in categoryButton(category) }
                 }
             }
             Button { sheet = .newCategory } label: {
                 Label("Nouvelle catégorie", systemImage: "folder.badge.plus")
-                    .font(.subheadline.weight(.medium))
-                    .frame(maxWidth: .infinity, minHeight: 56)
+                    .font(.footnote.weight(.medium))
+                    .frame(maxWidth: .infinity, minHeight: YAMSpacing.minimumTarget)
+                    .contentShape(Rectangle())
             }
         }
-        .padding(16)
+        .padding(YAMSpacing.medium)
         .yamSurface(theme)
     }
 
     private var compactCategories: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: YAMSpacing.small) {
             Text("Catégories")
-                .font(.headline)
-                .foregroundStyle(theme.primaryTextColor)
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(theme.secondaryTextColor)
                 .accessibilityAddTraits(.isHeader)
             if typeSize.isAccessibilitySize {
                 DisclosureGroup(activeCategory?.name ?? "Choisir une catégorie") {
                     ForEach(userCategories) { category in categoryButton(category) }
                 }
-                .font(.body)
-                .padding(16)
+                .font(.callout)
+                .padding(YAMSpacing.medium)
                 .yamSurface(theme)
             } else {
                 ScrollView(.horizontal) {
-                    HStack(spacing: 12) {
+                    HStack(spacing: YAMSpacing.medium) {
                         ForEach(userCategories) { category in
-                            categoryButton(category).frame(minWidth: 200)
+                            categoryButton(category).frame(minWidth: 152)
                         }
                     }
                     .padding(.vertical, 2)
@@ -308,19 +317,19 @@ struct MainAACView: View {
 
     private var libraryHeader: some View {
         ViewThatFits(in: .horizontal) {
-            HStack(alignment: .center, spacing: 16) { libraryTitle; Spacer(); addMenu }
-            VStack(alignment: .leading, spacing: 12) { libraryTitle; addMenu }
+            HStack(alignment: .center, spacing: YAMSpacing.large) { libraryTitle; Spacer(); addMenu }
+            VStack(alignment: .leading, spacing: YAMSpacing.medium) { libraryTitle; addMenu }
         }
     }
 
     private var libraryTitle: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 1) {
             Text(activeCategory?.name ?? "Vos phrases")
-                .font(.system(.title2, design: theme.fontDesign, weight: .bold))
+                .font(.system(.title3, design: theme.fontDesign, weight: .bold))
                 .foregroundStyle(theme.primaryTextColor)
                 .accessibilityAddTraits(.isHeader)
             Text(speechService.speakOnTap ? "Touchez une carte pour ajouter et parler." : "Touchez une carte pour composer votre phrase.")
-                .font(.subheadline)
+                .font(.footnote)
                 .foregroundStyle(theme.secondaryTextColor)
         }
     }
@@ -348,10 +357,10 @@ struct MainAACView: View {
                     Button(userCategories.isEmpty ? "Créer une catégorie" : "Ajouter une phrase") {
                         sheet = userCategories.isEmpty ? .newCategory : .newPhrase
                     }
-                    .frame(minHeight: 56)
+                    .frame(minHeight: YAMSpacing.minimumTarget)
                 }
             } else {
-                LazyVGrid(columns: columns, alignment: .leading, spacing: 16) {
+                LazyVGrid(columns: columns, alignment: .leading, spacing: YAMLayout.gridSpacing) {
                     ForEach(displayedItems) { item in
                         ModernAACCard(
                             item: item, categoryColor: activeCategory?.color ?? theme.accentColor,
@@ -464,4 +473,13 @@ struct MainAACView: View {
     ContentView()
         .modelContainer(for: [AACCategory.self, AACItem.self, FavoritePhrase.self, UserProfile.self], inMemory: true)
         .environment(\.colorScheme, .dark)
+}
+
+// Portrait : à vérifier dans Xcode en basculant l’appareil du canvas (pas de trait dédié).
+// La disposition large exige 960 pt de largeur ; à 834 pt (iPad Pro 11" en portrait),
+// l’écran principal bascule en page verticale défilante avec catégories horizontales.
+#Preview("iPad · Réglages") {
+    SettingsView()
+        .modelContainer(for: [AACCategory.self, AACItem.self, FavoritePhrase.self, UserProfile.self], inMemory: true)
+        .frame(maxWidth: YAMLayout.windowMaxWidth)
 }

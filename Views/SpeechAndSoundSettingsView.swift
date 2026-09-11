@@ -35,6 +35,9 @@ struct SpeechAndSoundSettingsView: View {
             cachedAudioSection
             playbackBehaviorSection
         }
+        // Rythme resserré, proche des Réglages natifs d’iPadOS.
+        .listSectionSpacing(.compact)
+        .contentMargins(.vertical, YAMSpacing.small, for: .scrollContent)
         .navigationTitle("Parole et Son")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -76,7 +79,7 @@ struct SpeechAndSoundSettingsView: View {
                 Label("ElevenLabs (IA Studio)", systemImage: "waveform.circle.fill").tag("elevenlabs")
             }
             .pickerStyle(.segmented)
-            .padding(.vertical, 4)
+            .padding(.vertical, 2)
 
             if speechService.preferredEngine == "elevenlabs" {
                 HStack(alignment: .top, spacing: 10) {
@@ -121,11 +124,13 @@ struct SpeechAndSoundSettingsView: View {
             } label: {
                 HStack(spacing: 8) {
                     Image(systemName: "speaker.wave.2.fill")
-                        .font(.headline)
+                        .font(.subheadline)
                     Text("Tester cette voix Apple")
-                        .fontWeight(.bold)
+                        .fontWeight(.semibold)
                 }
                 .foregroundColor(theme.accentColor)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
             }
 
             // Vitesse

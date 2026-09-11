@@ -65,7 +65,7 @@ struct SettingsView: View {
                     Toggle(isOn: $hapticFeedback) {
                         settingsRow("Retour haptique", subtitle: "Si votre appareil le prend en charge", icon: "hand.tap")
                     }
-                    VStack(alignment: .leading, spacing: 12) {
+                    VStack(alignment: .leading, spacing: YAMSpacing.small) {
                         settingsRow("Taille des cartes", subtitle: "Moins de cartes, plus d’espace pour toucher", icon: "rectangle.expand.vertical")
                         Picker("Taille des cartes", selection: $gridCardSize) {
                             Text("Compacte").tag(0.8)
@@ -73,7 +73,7 @@ struct SettingsView: View {
                             Text("Grande").tag(1.3)
                         }
                         .pickerStyle(.menu)
-                        .frame(minHeight: 56)
+                        .frame(minHeight: YAMSpacing.minimumTarget)
                     }
                 } header: {
                     Text("Confort d’utilisation")
@@ -87,15 +87,20 @@ struct SettingsView: View {
                         LabeledContent("Version", value: version)
                     }
                     Text("Vos phrases sont enregistrées sur cet appareil. Aucun export de sauvegarde n’est proposé dans cet écran.")
-                        .font(.footnote)
+                        .font(.caption)
                         .foregroundStyle(theme.secondaryTextColor)
                 } header: { Text("À propos et données") }
             }
             .listStyle(.insetGrouped)
+            .listSectionSpacing(.compact)
             .scrollContentBackground(.hidden)
+            .contentMargins(.vertical, YAMSpacing.medium, for: .scrollContent)
+            // Contenu centré dans la fenêtre : les lignes ne s’étirent pas sur toute la tablette.
+            .frame(maxWidth: YAMLayout.windowContentWidth)
+            .frame(maxWidth: .infinity)
             .background { YAMAmbientBackground(theme: theme) }
             .navigationTitle("Réglages")
-            .navigationBarTitleDisplayMode(.large)
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) { Button("Fermer") { dismiss() } }
             }
@@ -105,24 +110,26 @@ struct SettingsView: View {
     }
 
     private func settingsRow(_ title: String, subtitle: String, icon: String) -> some View {
-        HStack(alignment: .center, spacing: 16) {
+        HStack(alignment: .center, spacing: YAMSpacing.large) {
             Image(systemName: icon)
-                .font(.title3.weight(theme.iconWeight))
+                .font(.body.weight(theme.iconWeight))
                 .foregroundStyle(theme.accentColor)
-                .frame(width: 44, height: 44)
-                .background(theme.secondaryCardBackground, in: RoundedRectangle(cornerRadius: 12))
+                .frame(width: 28, height: 28)
+                .background(theme.secondaryCardBackground, in: RoundedRectangle(cornerRadius: 8))
                 .accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 1) {
                 Text(title)
-                    .font(.body.weight(.semibold))
+                    .font(.callout.weight(.semibold))
                     .foregroundStyle(theme.primaryTextColor)
                 Text(subtitle)
-                    .font(.subheadline)
+                    .font(.footnote)
                     .foregroundStyle(theme.secondaryTextColor)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
-        .padding(.vertical, 8)
+        // Cellule fine, mais cible tactile de 44 pt conservée sur toute la largeur de la ligne.
+        .frame(minHeight: YAMSpacing.minimumTarget)
+        .contentShape(Rectangle())
     }
 }
 
@@ -138,13 +145,16 @@ struct CategoryManagementView: View {
                 ForEach(categories.filter { $0.userProfileId == profileManager.activeProfileId }) { category in
                     Button { editingCategory = category } label: {
                         Label(category.name, systemImage: category.iconName)
-                            .font(.body)
-                            .frame(minHeight: 56)
+                            .font(.callout)
+                            .frame(minHeight: YAMSpacing.minimumTarget)
+                            .contentShape(Rectangle())
                     }
                 }
                 Button { addingCategory = true } label: {
                     Label("Nouvelle catégorie", systemImage: "folder.badge.plus")
-                        .frame(minHeight: 56)
+                        .font(.callout)
+                        .frame(minHeight: YAMSpacing.minimumTarget)
+                        .contentShape(Rectangle())
                 }
             } footer: {
                 Text("Pour modifier une phrase, utilisez son bouton Options sur l’écran principal. Renommer une catégorie conserve toutes ses phrases.")

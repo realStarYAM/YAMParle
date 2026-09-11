@@ -31,10 +31,10 @@ struct CategoryEditorView: View {
             Form {
                 Section("Aperçu") {
                     Label(name.isEmpty ? "Votre catégorie" : name, systemImage: selectedIcon)
-                        .font(.title3.weight(.semibold))
+                        .font(.body.weight(.semibold))
                         .foregroundStyle(theme.primaryTextColor)
-                        .padding(16)
-                        .frame(maxWidth: .infinity, minHeight: 64, alignment: .leading)
+                        .padding(YAMSpacing.medium)
+                        .frame(maxWidth: .infinity, minHeight: 48, alignment: .leading)
                         .background(Color(hex: selectedColorHex).opacity(0.12), in: RoundedRectangle(cornerRadius: theme.buttonCornerRadius))
                 }
                 Section("Nom") {
@@ -43,11 +43,11 @@ struct CategoryEditorView: View {
                         .accessibilityLabel("Nom de la catégorie")
                 }
                 Section("Couleur") {
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 56), spacing: 12)], spacing: 12) {
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 48), spacing: YAMSpacing.medium)], spacing: YAMSpacing.medium) {
                         ForEach(colors, id: \.hex) { color in
                             Button { selectedColorHex = color.hex } label: {
                                 Circle().fill(Color(hex: color.hex))
-                                    .frame(width: 40, height: 40)
+                                    .frame(width: 34, height: 34)
                                     .overlay {
                                         if selectedColorHex == color.hex {
                                             Image(systemName: "checkmark.circle.fill")
@@ -55,7 +55,7 @@ struct CategoryEditorView: View {
                                                 .foregroundStyle(.white, .black)
                                         }
                                     }
-                                    .frame(width: 56, height: 56)
+                                    .frame(width: YAMSpacing.minimumTarget, height: YAMSpacing.minimumTarget)
                                     .contentShape(Rectangle())
                             }
                             .buttonStyle(.plain)
@@ -65,13 +65,13 @@ struct CategoryEditorView: View {
                     }
                 }
                 Section("Icône") {
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 64), spacing: 12)], spacing: 12) {
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 56), spacing: YAMSpacing.medium)], spacing: YAMSpacing.medium) {
                         ForEach(icons, id: \.symbol) { icon in
                             Button { selectedIcon = icon.symbol } label: {
                                 Image(systemName: icon.symbol)
                                     .font(.title2)
                                     .foregroundStyle(selectedIcon == icon.symbol ? theme.onAccentColor : theme.primaryTextColor)
-                                    .frame(width: 64, height: 64)
+                                    .frame(width: YAMSpacing.minimumTarget, height: YAMSpacing.minimumTarget)
                                     .background(selectedIcon == icon.symbol ? theme.accentColor : theme.secondaryCardBackground,
                                                 in: RoundedRectangle(cornerRadius: theme.buttonCornerRadius))
                             }

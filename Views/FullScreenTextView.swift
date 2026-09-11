@@ -26,7 +26,7 @@ struct FullScreenTextView: View {
         }
         .rotationEffect(.degrees(isFaceToFace ? 180 : 0))
         .safeAreaInset(edge: .top) {
-            HStack(spacing: 16) {
+            HStack(spacing: YAMSpacing.large) {
                 YAMActionButton(title: "Fermer", icon: "xmark", isFullWidth: false) { dismiss() }
                 Spacer(minLength: 0)
                 Menu {
@@ -46,20 +46,20 @@ struct FullScreenTextView: View {
                 }
                 .accessibilityLabel("Options d’affichage et copie")
             }
-            .padding(20)
+            .padding(YAMSpacing.large)
             .background(theme.backgroundColor)
         }
         .safeAreaInset(edge: .bottom) {
             YAMActionButton(
                 title: speechService.isSpeaking ? "Arrêter" : "Parler",
                 icon: speechService.isSpeaking ? "stop.fill" : "speaker.wave.2.fill",
-                variant: .hero(theme.accentColor), height: 72
+                variant: .hero(theme.accentColor), height: YAMLayout.heroHeight
             ) {
                 if speechService.isSpeaking { speechService.stop() } else { onSpeak() }
             }
             .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !speechService.isSpeaking)
-            .frame(maxWidth: 480)
-            .padding(20)
+            .frame(maxWidth: 440)
+            .padding(YAMSpacing.large)
             .frame(maxWidth: .infinity)
             .background(theme.backgroundColor)
         }

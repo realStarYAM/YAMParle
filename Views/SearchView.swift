@@ -29,7 +29,7 @@ struct SearchView: View {
                 if filteredItems.isEmpty {
                     ContentUnavailableView.search(text: query)
                 } else {
-                    LazyVGrid(columns: typeSize.isAccessibilitySize ? [GridItem(.flexible())] : [GridItem(.adaptive(minimum: 230), spacing: 16)], spacing: 16) {
+                    LazyVGrid(columns: typeSize.isAccessibilitySize ? [GridItem(.flexible())] : [GridItem(.adaptive(minimum: YAMLayout.gridCardMinWidth), spacing: YAMLayout.gridSpacing)], spacing: YAMLayout.gridSpacing) {
                         ForEach(filteredItems) { item in
                             ModernAACCard(
                                 item: item,
@@ -46,7 +46,7 @@ struct SearchView: View {
                             )
                         }
                     }
-                    .padding(20)
+                    .padding(YAMSpacing.large)
                 }
             }
             .background { YAMAmbientBackground(theme: theme) }
