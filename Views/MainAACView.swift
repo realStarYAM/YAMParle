@@ -18,6 +18,7 @@ struct MainAACView: View {
     @State private var selectedCategoryId = ""
     @State private var sheet: AACSheet?
     @State private var pendingEdit: AACItem?
+    @State private var profileToActivate: UserProfile?
     @State private var fullScreenText: String?
     @State private var showingFullScreen = false
     @FocusState private var isEditorFocused: Bool
@@ -48,6 +49,10 @@ struct MainAACView: View {
     }
 
     private var theme: AppTheme { themeManager.currentTheme }
+    /// Une phrase en cours de composition n’est pas encore enregistrée : changer de profil l’efface.
+    private var hasUnsavedDraft: Bool {
+        !textInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
     private var activeProfile: UserProfile? {
         profiles.first { $0.id == profileManager.activeProfileId } ?? profiles.first
     }
@@ -147,8 +152,34 @@ struct MainAACView: View {
             .onChange(of: textInput) { _, text in
                 if !text.isEmpty { clearedText = "" }
             }
+            .yamProfileSwitchConfirmation(isPresented: profileSwitchBinding, onConfirm: confirmProfileSwitch)
         }
         .tint(theme.accentColor)
+    }
+
+    private var profileSwitchBinding: Binding<Bool> {
+        Binding(get: { profileToActivate != nil }, set: { if !$0 { profileToActivate = nil } })
+    }
+
+    /// Le menu de l’en-tête et la gestion des profils posent la même question au même moment.
+    private func requestProfileSwitch(to profile: UserProfile) {
+        guard profile.id != profileManager.activeProfileId else { return }
+        guard hasUnsavedDraft else {
+            activate(profile)
+            return
+        }
+        profileToActivate = profile
+    }
+
+    private func confirmProfileSwitch() {
+        guard let profile = profileToActivate else { return }
+        profileToActivate = nil
+        activate(profile)
+    }
+
+    private func activate(_ profile: UserProfile) {
+        profileManager.activeProfileId = profile.id
+        profileManager.applyProfileSettings(profile)
     }
 
     private var header: some View {
@@ -192,9 +223,9 @@ struct MainAACView: View {
         Menu {
             ForEach(profiles) { profile in
                 Button {
-                    profileManager.activeProfileId = profile.id
+                    requestProfileSwitch(to: profile)
                 } label: {
-                    Label(profile.name, systemImage: profile.id == effectiveProfileId ? "checkmark.circle" : "person.circle")
+                    Label(profile.name, systemImage: profile.id == effectiveProfileId ? "checkmark.circle.fill" : "person.circle")
                 }
             }
             Divider()
@@ -383,10 +414,7 @@ struct MainAACView: View {
         switch destination {
         case .profiles:
             NavigationStack {
-                UserProfilesView()
-                    .toolbar {
-                        ToolbarItem(placement: .confirmationAction) { Button("Fermer") { sheet = nil } }
-                    }
+                UserProfilesView(hasUnsavedDraft: hasUnsavedDraft, onClose: { sheet = nil })
             }
         case .search:
             SearchView(
@@ -395,7 +423,7 @@ struct MainAACView: View {
                 onEditPhrase: { item in pendingEdit = item; sheet = nil }
             )
         case .settings:
-            SettingsView()
+            SettingsView(hasUnsavedDraft: hasUnsavedDraft)
         case .newCategory:
             CategoryEditorView()
         case .newPhrase, .savePhrase:

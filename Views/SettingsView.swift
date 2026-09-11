@@ -8,6 +8,9 @@ struct SettingsView: View {
     @Bindable private var themeManager = ThemeManager.shared
     @Query(sort: \UserProfile.createdAt) private var profiles: [UserProfile]
 
+    /// Transmis à la gestion des profils : changer de profil efface la phrase en cours.
+    var hasUnsavedDraft = false
+
     @AppStorage("yamparle_high_contrast") private var highContrast = false
     @AppStorage("yamparle_haptic_feedback") private var hapticFeedback = true
     @AppStorage("yamparle_grid_card_size") private var gridCardSize = 1.0
@@ -22,7 +25,7 @@ struct SettingsView: View {
             List {
                 Section {
                     NavigationLink {
-                        UserProfilesView()
+                        UserProfilesView(hasUnsavedDraft: hasUnsavedDraft)
                     } label: {
                         settingsRow(
                             activeProfile?.name ?? "Utilisateur par défaut",

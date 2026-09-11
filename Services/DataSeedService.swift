@@ -34,6 +34,62 @@ struct DataSeedService {
         }
     }
 
+    /// Catalogue de départ d’un nouveau profil : quatre catégories et les phrases du premier jour.
+    /// La création d’un profil ne construit donc pas ses données elle-même ; le composant visuel
+    /// reste un formulaire, ce service écrit en base.
+    @MainActor
+    static func seedStarterCategories(for userProfileId: String, in context: ModelContext) {
+        let starterCategories: [(name: String, icon: String, colorHex: String, phrases: [String])] = [
+            ("Conversation", "bubble.left.and.bubble.right.fill", "#1E73F2", [
+                "Bonjour", "Bonsoir", "Bonne journée", "Bonne nuit", "Comment ça va ?", "Ça va bien", "Ça ne va pas bien",
+                "Comment tu t’appelles ?", "Ravi de vous voir", "Excusez-moi", "Attendez un instant", "Quoi de neuf ?",
+                "Je n’ai pas compris, pouvez-vous répéter ?", "Pourriez-vous m’aider ?", "Je l’aime", "Je n’aime pas ça",
+                "À plus tard", "Au revoir", "Oui", "Non", "Peut-être",
+            ]),
+            ("Besoins", "heart.fill", "#FF2D55", [
+                "J’ai faim", "J’ai soif", "Je veux aller aux toilettes", "J’ai froid", "J’ai chaud", "Je suis fatigué",
+                "J’ai mal", "Où ai-je mal ?", "J’ai besoin de repos", "J’ai besoin de mes médicaments", "Aidez-moi s’il vous plaît",
+                "Je veux m’asseoir", "Je veux me lever", "Je veux marcher",
+            ]),
+            ("Émotions", "face.smiling.fill", "#FF9500", [
+                "Je suis content", "Je suis triste", "Je suis en colère", "J’ai peur", "Je suis inquiet", "Je suis surpris",
+                "Je me sens calme", "Je me sens seul", "Je suis fier", "Je suis déçu", "Je me sens dépassé",
+                "J’ai besoin d’un câlin", "Merci beaucoup",
+            ]),
+            ("Activités", "figure.walk", "#34C759", [
+                "Je veux écouter de la musique", "Je veux regarder la télévision", "Je veux lire un livre", "Je veux dessiner",
+                "Je veux jouer", "Je veux aller dehors", "Je veux faire une promenade", "Je veux utiliser ma tablette",
+                "Je veux cuisiner", "Je veux téléphoner", "Je veux me reposer", "C’est amusant",
+            ]),
+        ]
+
+        var categoryOrder = 0
+        for entry in starterCategories {
+            let categoryId = "cat_\(UUID().uuidString.prefix(8))"
+            context.insert(AACCategory(
+                id: categoryId,
+                name: entry.name,
+                iconName: entry.icon,
+                colorHex: entry.colorHex,
+                sortOrder: categoryOrder,
+                isCustom: false,
+                userProfileId: userProfileId
+            ))
+            categoryOrder += 1
+
+            var itemOrder = 0
+            for phrase in entry.phrases {
+                context.insert(AACItem(
+                    text: phrase,
+                    categoryId: categoryId,
+                    sortOrder: itemOrder,
+                    userProfileId: userProfileId
+                ))
+                itemOrder += 1
+            }
+        }
+    }
+
     @MainActor
     private static func populateData(in context: ModelContext) {
         struct ItemSeed {

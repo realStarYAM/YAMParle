@@ -17,7 +17,7 @@ enum YAMSpacing {
     static let minimumTarget: CGFloat = 44
 }
 
-/// Dimensions des éléments : cartes, colonnes, compositeur, fenêtres modales.
+/// Dimensions des éléments : cartes, colonnes, compositeur, fenêtres modales, formulaires.
 /// Un seul endroit pour changer les proportions de l’application.
 enum YAMLayout {
     /// Largeur de la colonne Catégories en disposition large.
@@ -29,6 +29,11 @@ enum YAMLayout {
     static let cardMinHeight: CGFloat = 92
     static let cardSymbolSize: CGFloat = 19
     static let cardArtworkSize: CGFloat = 36
+    /// Marge intérieure d’une face de carte : le libellé est aligné sous l’illustration.
+    static let cardFaceLeadingPadding: CGFloat = 12
+    static let cardFaceVerticalPadding: CGFloat = 10
+    /// Colonne des options d’une carte (bouton ⋯) : 40 × 44 pt.
+    static let cardOptionsWidth: CGFloat = 40
     /// Hauteur du champ « Votre phrase ».
     static let composerEditorHeight: CGFloat = 64
     static let composerPadding: CGFloat = 14
@@ -42,6 +47,24 @@ enum YAMLayout {
     static let windowMaxWidth: CGFloat = 744
     /// Colonne de contenu à l’intérieur de la fenêtre, pour éviter les lignes kilométriques.
     static let windowContentWidth: CGFloat = 744
+    /// Grilles de choix des formulaires : dessin de la pastille et largeur de colonne.
+    static let swatchGlyphSize: CGFloat = 34
+    static let swatchColumnMinWidth: CGFloat = 48
+    static let iconColumnMinWidth: CGFloat = 56
+    /// Avatar d’un profil dans la liste de gestion.
+    static let avatarSize: CGFloat = 38
+    static let avatarGlyphSize: CGFloat = 34
+    /// Témoin de l’enregistrement en cours dans les formulaires.
+    static let recordingDotSize: CGFloat = 10
+}
+
+/// Tons sémantiques qui ne suivent pas le thème choisi : suppression, avertissement, confirmation.
+/// Ils colorent l’icône, le fond teinté et le contour — jamais le libellé seul, qui garde la
+/// couleur de texte du thème dont le contraste est vérifié par les tests numériques.
+enum YAMTone {
+    static let destructive = Color(uiColor: .systemRed)
+    static let warning = Color(uiColor: .systemOrange)
+    static let positive = Color(uiColor: .systemGreen)
 }
 
 /// Style de présentation d’une feuille.
@@ -85,6 +108,22 @@ struct YAMSheetPresentation: ViewModifier {
 extension View {
     func yamSheetPresentation(_ kind: YAMSheetKind = .sheet) -> some View {
         modifier(YAMSheetPresentation(kind: kind))
+    }
+
+    /// Confirmations partagées : un changement de profil efface la phrase en cours de composition.
+    /// L’écran qui présente la liste des profils et l’en-tête de l’accueil posent la même question,
+    /// avec le même libellé, pour ne jamais surprendre deux fois différemment.
+    func yamProfileSwitchConfirmation(isPresented: Binding<Bool>, onConfirm: @escaping () -> Void) -> some View {
+        confirmationDialog(
+            "Changer de profil ?",
+            isPresented: isPresented,
+            titleVisibility: .visible
+        ) {
+            Button("Changer de profil", action: onConfirm)
+            Button("Garder ce profil", role: .cancel) { }
+        } message: {
+            Text("Votre phrase en cours de composition sera effacée et la lecture arrêtée.")
+        }
     }
 }
 
@@ -184,6 +223,15 @@ enum YAMActionButtonVariant {
         default: return false
         }
     }
+
+    /// Les actions qui annulent ou dégradent une donnée portent un ton visible,
+    /// sans que la couleur soit le seul indice : le libellé reste explicite.
+    var carriesTone: Bool {
+        switch self {
+        case .destructive, .warning: return true
+        default: return false
+        }
+    }
 }
 
 struct YAMActionLabel: View {
@@ -224,14 +272,28 @@ struct YAMActionButton: View {
             Label(title, systemImage: isSpeaking ? "stop.fill" : icon)
                 .font(.system(variant.isDominant ? .body : .callout, design: theme.fontDesign, weight: .semibold))
                 .multilineTextAlignment(.center)
-                .foregroundStyle(foreground)
+                .foregroundStyle(foreground, iconForeground)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 7)
                 .frame(maxWidth: isFullWidth ? .infinity : nil, minHeight: max(height, YAMSpacing.minimumTarget))
                 .background(background, in: RoundedRectangle(cornerRadius: theme.buttonCornerRadius, style: .continuous))
+                .overlay {
+                    if variant.carriesTone {
+                        RoundedRectangle(cornerRadius: theme.buttonCornerRadius, style: .continuous)
+                            .strokeBorder(tone.opacity(0.65), lineWidth: 1)
+                    }
+                }
         }
         .buttonStyle(.yamPress)
         .opacity(isEnabled ? 1 : 0.45)
+    }
+
+    private var tone: Color {
+        switch variant {
+        case .destructive: return YAMTone.destructive
+        case .warning: return YAMTone.warning
+        default: return theme.accentColor
+        }
     }
 
     private var foreground: Color {
@@ -241,10 +303,83 @@ struct YAMActionButton: View {
         }
     }
 
+    /// Le ton ne colore que le pictogramme : le texte garde un contraste testé sur sa surface.
+    private var iconForeground: Color {
+        switch variant {
+        case .hero, .primary: return theme.onAccentColor
+        case .destructive, .warning: return tone
+        default: return theme.primaryTextColor
+        }
+    }
+
     private var background: Color {
         switch variant {
         case .hero(let color), .primary(let color): return color
+        case .destructive: return YAMTone.destructive.opacity(0.12)
+        case .warning: return YAMTone.warning.opacity(0.14)
+        case .neutral: return .clear
         default: return theme.secondaryCardBackground
+        }
+    }
+}
+
+/// Le dessin d’une carte de phrase : illustration, libellé, badge de voix.
+///
+/// L’accueil, la recherche et l’aperçu des formulaires partagent ce rendu. Un formulaire
+/// ne redessine donc pas « sa » carte à part : ce que l’on voit dans l’aperçu est ce que
+/// l’on touchera sur l’écran principal, y compris pour un libellé très long.
+struct YAMCardFace: View {
+    let label: String
+    let symbolName: String
+    var imageData: Data? = nil
+    var tint: Color = Color.clear
+    /// « Voix enregistrée » ou « Voix IA » ; nil quand la carte parle avec la voix du profil.
+    var audioBadgeTitle: String? = nil
+
+    @Bindable private var themeManager = ThemeManager.shared
+    @ScaledMetric(relativeTo: .body) private var symbolSize: CGFloat = YAMLayout.cardSymbolSize
+    private var theme: AppTheme { themeManager.currentTheme }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: YAMSpacing.medium) {
+            artwork
+                .accessibilityHidden(true)
+
+            Text(label)
+                .font(.system(.body, design: theme.fontDesign, weight: .semibold))
+                .foregroundStyle(theme.primaryTextColor)
+                .multilineTextAlignment(.leading)
+                .fixedSize(horizontal: false, vertical: true)
+
+            if let audioBadgeTitle {
+                Label(audioBadgeTitle, systemImage: "waveform")
+                    .font(.caption2)
+                    .foregroundStyle(theme.secondaryTextColor)
+            }
+        }
+        .frame(maxWidth: .infinity, minHeight: YAMLayout.cardMinHeight, alignment: .topLeading)
+        .padding(.leading, YAMLayout.cardFaceLeadingPadding)
+        .padding(.vertical, YAMLayout.cardFaceVerticalPadding)
+        .contentShape(Rectangle())
+    }
+
+    @ViewBuilder
+    private var artwork: some View {
+        if let imageData, let image = UIImage(data: imageData) {
+            Image(uiImage: image)
+                .resizable()
+                .scaledToFill()
+                .frame(width: YAMLayout.cardArtworkSize, height: YAMLayout.cardArtworkSize)
+                .clipShape(RoundedRectangle(cornerRadius: theme.buttonCornerRadius / 2))
+        } else {
+            Image(systemName: symbolName)
+                .font(.system(size: symbolSize, weight: theme.iconWeight))
+                .foregroundStyle(theme.accentColor)
+                .frame(
+                    minWidth: YAMLayout.cardArtworkSize,
+                    minHeight: YAMLayout.cardArtworkSize * 3 / 4
+                )
+                .background(tint.opacity(0.1), in: RoundedRectangle(cornerRadius: theme.buttonCornerRadius / 2))
         }
     }
 }
@@ -259,7 +394,6 @@ struct ModernAACCard: View {
     let onEdit: () -> Void
 
     @Bindable private var themeManager = ThemeManager.shared
-    @ScaledMetric(relativeTo: .body) private var symbolSize: CGFloat = YAMLayout.cardSymbolSize
     private var theme: AppTheme { themeManager.currentTheme }
     private var color: Color { item.effectiveColor ?? categoryColor }
 
@@ -269,43 +403,13 @@ struct ModernAACCard: View {
                 YAMFeedback.selection()
                 onTap()
             } label: {
-                VStack(alignment: .leading, spacing: 8) {
-                    Group {
-                        if let data = item.customImageData, let image = UIImage(data: data) {
-                            Image(uiImage: image)
-                                .resizable()
-                                .scaledToFill()
-                                .frame(width: YAMLayout.cardArtworkSize, height: YAMLayout.cardArtworkSize)
-                                .clipShape(RoundedRectangle(cornerRadius: theme.buttonCornerRadius / 2))
-                        } else {
-                            Image(systemName: item.iconName)
-                                .font(.system(size: symbolSize, weight: theme.iconWeight))
-                                .foregroundStyle(theme.accentColor)
-                                .frame(
-                                    minWidth: YAMLayout.cardArtworkSize,
-                                    minHeight: YAMLayout.cardArtworkSize * 3 / 4
-                                )
-                                .background(color.opacity(0.1), in: RoundedRectangle(cornerRadius: theme.buttonCornerRadius / 2))
-                        }
-                    }
-                    .accessibilityHidden(true)
-
-                    Text(item.displayLabel)
-                        .font(.system(.body, design: theme.fontDesign, weight: .semibold))
-                        .foregroundStyle(theme.primaryTextColor)
-                        .multilineTextAlignment(.leading)
-                        .fixedSize(horizontal: false, vertical: true)
-
-                    if item.hasCustomAudio {
-                        Label(item.audioSourceType == "recording" ? "Voix enregistrée" : "Voix IA", systemImage: "waveform")
-                            .font(.caption2)
-                            .foregroundStyle(theme.secondaryTextColor)
-                    }
-                }
-                .frame(maxWidth: .infinity, minHeight: YAMLayout.cardMinHeight, alignment: .topLeading)
-                .padding(.leading, 12)
-                .padding(.vertical, 10)
-                .contentShape(Rectangle())
+                YAMCardFace(
+                    label: item.displayLabel,
+                    symbolName: item.iconName,
+                    imageData: item.customImageData,
+                    tint: color,
+                    audioBadgeTitle: audioBadgeTitle
+                )
             }
             .buttonStyle(.yamPress)
             .accessibilityLabel(item.displayLabel)
@@ -320,12 +424,17 @@ struct ModernAACCard: View {
                 Image(systemName: "ellipsis")
                     .font(.footnote.weight(.semibold))
                     .foregroundStyle(theme.secondaryTextColor)
-                    .frame(width: 40, height: YAMSpacing.minimumTarget)
+                    .frame(width: YAMLayout.cardOptionsWidth, height: YAMSpacing.minimumTarget)
                     .contentShape(Rectangle())
             }
             .accessibilityLabel("Options pour : \(item.displayLabel)")
         }
         .yamSurface(theme, selected: isSelected)
+    }
+
+    private var audioBadgeTitle: String? {
+        guard item.hasCustomAudio else { return nil }
+        return item.audioSourceType == "recording" ? "Voix enregistrée" : "Voix IA"
     }
 }
 
@@ -380,5 +489,164 @@ struct ModernCategoryTile: View {
         .accessibilityLabel(category.name)
         .accessibilityValue("\(count) phrases")
         .accessibilityAddTraits(isSelected ? [.isSelected] : [])
+    }
+}
+
+// MARK: - Choices des formulaires
+
+/// Pastille de couleur avec son nom, pour que le choix ne se lise pas seulement à l’œil.
+struct YAMSwatch: Identifiable {
+    let hex: String
+    let title: String
+    var id: String { hex }
+
+    static let palette: [YAMSwatch] = [
+        YAMSwatch(hex: "#1E73F2", title: "Bleu"),
+        YAMSwatch(hex: "#30D158", title: "Vert"),
+        YAMSwatch(hex: "#FF9F0A", title: "Orange"),
+        YAMSwatch(hex: "#40CBE0", title: "Turquoise"),
+        YAMSwatch(hex: "#FF375F", title: "Rose"),
+        YAMSwatch(hex: "#BF5AF2", title: "Violet"),
+        YAMSwatch(hex: "#5E5CE6", title: "Indigo"),
+        YAMSwatch(hex: "#FFD60A", title: "Jaune"),
+        YAMSwatch(hex: "#AC8E68", title: "Brun"),
+        YAMSwatch(hex: "#64D2FF", title: "Bleu ciel"),
+        YAMSwatch(hex: "#FF453A", title: "Rouge"),
+        YAMSwatch(hex: "#8E8E93", title: "Gris"),
+    ]
+
+    /// Les teintes proposées aux profils, plus sobres que la palette complète des cartes.
+    static let profilePalette: [YAMSwatch] = Array(palette.prefix(8))
+}
+
+/// Symbole proposé à un choix d’icône, toujours accompagné de son nom.
+struct YAMIconChoice: Identifiable {
+    let symbol: String
+    let title: String
+    var id: String { symbol }
+}
+
+/// Grille de pastilles de couleur : sélection marquée par une coche, pas seulement par un anneau.
+struct YAMSwatchGrid: View {
+    @Binding var selection: String
+    var swatches: [YAMSwatch] = YAMSwatch.palette
+
+    @Bindable private var themeManager = ThemeManager.shared
+    private var theme: AppTheme { themeManager.currentTheme }
+
+    var body: some View {
+        LazyVGrid(
+            columns: [GridItem(.adaptive(minimum: YAMLayout.swatchColumnMinWidth), spacing: YAMSpacing.medium)],
+            spacing: YAMSpacing.medium
+        ) {
+            ForEach(swatches) { swatch in
+                Button {
+                    YAMFeedback.selection()
+                    selection = swatch.hex
+                } label: {
+                    Circle()
+                        .fill(Color(hex: swatch.hex))
+                        .frame(width: YAMLayout.swatchGlyphSize, height: YAMLayout.swatchGlyphSize)
+                        .overlay {
+                            if selection == swatch.hex {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .symbolRenderingMode(.palette)
+                                    .foregroundStyle(.white, .black)
+                            }
+                        }
+                        .frame(width: YAMSpacing.minimumTarget, height: YAMSpacing.minimumTarget)
+                        .background(
+                            selection == swatch.hex ? theme.secondaryCardBackground : .clear,
+                            in: RoundedRectangle(cornerRadius: 8)
+                        )
+                        .overlay {
+                            if selection == swatch.hex {
+                                RoundedRectangle(cornerRadius: 8)
+                                    .strokeBorder(theme.accentColor, lineWidth: 2)
+                            }
+                        }
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(swatch.title)
+                .accessibilityAddTraits(selection == swatch.hex ? [.isSelected] : [])
+            }
+        }
+        .padding(.vertical, YAMSpacing.small)
+    }
+}
+
+/// Grille d’icônes SF Symbols : cible de 44 pt, nom lu par VoiceOver, sélection annoncée.
+struct YAMIconChoiceGrid: View {
+    @Binding var selection: String
+    let choices: [YAMIconChoice]
+
+    @Bindable private var themeManager = ThemeManager.shared
+    private var theme: AppTheme { themeManager.currentTheme }
+
+    var body: some View {
+        LazyVGrid(
+            columns: [GridItem(.adaptive(minimum: YAMLayout.iconColumnMinWidth), spacing: YAMSpacing.medium)],
+            spacing: YAMSpacing.medium
+        ) {
+            ForEach(choices) { choice in
+                Button {
+                    YAMFeedback.selection()
+                    selection = choice.symbol
+                } label: {
+                    Image(systemName: choice.symbol)
+                        .font(.title2)
+                        .foregroundStyle(selection == choice.symbol ? theme.onAccentColor : theme.primaryTextColor)
+                        .frame(width: YAMSpacing.minimumTarget, height: YAMSpacing.minimumTarget)
+                        .background(
+                            selection == choice.symbol ? theme.accentColor : theme.secondaryCardBackground,
+                            in: RoundedRectangle(cornerRadius: theme.buttonCornerRadius)
+                        )
+                }
+                .buttonStyle(.yamPress)
+                .accessibilityLabel(choice.title)
+                .accessibilityAddTraits(selection == choice.symbol ? [.isSelected] : [])
+            }
+        }
+        .padding(.vertical, YAMSpacing.small)
+    }
+}
+
+/// Section avancée repliable : les réglages que l’on touche rarement ne font plus
+/// la concurrence aux réglages du quotidien, sans devenir introuvables.
+struct YAMAdvancedSection<Content: View>: View {
+    let title: String
+    let summary: String?
+    @Binding var isExpanded: Bool
+    @ViewBuilder var content: () -> Content
+
+    @Bindable private var themeManager = ThemeManager.shared
+    private var theme: AppTheme { themeManager.currentTheme }
+
+    init(title: String, summary: String? = nil, isExpanded: Binding<Bool>, @ViewBuilder content: @escaping () -> Content) {
+        self.title = title
+        self.summary = summary
+        self._isExpanded = isExpanded
+        self.content = content
+    }
+
+    var body: some View {
+        DisclosureGroup(isExpanded: $isExpanded) {
+            content()
+        } label: {
+            VStack(alignment: .leading, spacing: 1) {
+                Text(title)
+                    .font(.callout.weight(.semibold))
+                    .foregroundStyle(theme.primaryTextColor)
+                if let summary {
+                    Text(summary)
+                        .font(.footnote)
+                        .foregroundStyle(theme.secondaryTextColor)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        }
+        .tint(theme.accentColor)
+        .accessibilityElement(children: .contain)
     }
 }

@@ -70,11 +70,18 @@ Feuille native avec recherche système, mêmes cartes que l’accueil, filtrage 
 
 État sans résultat avec la requête, bouton Fermer toujours disponible. La recherche ne change ni l’ordre enregistré ni la catégorie choisie à l’accueil.
 
-### C. Nouvelle phrase / Modifier · écran existant conservé
+### C. Nouvelle phrase / Modifier · remanié (passe 2)
 
-Les formulaires `ItemEditorView` restent utilisés : aperçu, texte, étiquette facultative, catégorie, symbole/photo, texte prononcé, Apple/ElevenLabs/enregistrement personnel. L’enregistrement depuis le compositeur préremplit le texte et la catégorie active.
+`ItemEditorView` suit l’ordre annoncé : trois sections **« Contenu »** (texte complet, étiquette facultative, catégorie, position), **« Apparence »** (aperçu, photo, icône, couleur) puis **« Voix »** (résumé de la voix choisie et écoute immédiate). Annuler et Enregistrer restent dans la barre native.
 
-**Proposition pour une seconde passe visuelle :** aperçu fondé sur la même carte, puis trois sections « Contenu », « Apparence », « Voix ». Déplacer le texte prononcé alternatif et le moteur individuel dans une section avancée repliable. Conserver Annuler/Enregistrer dans la barre native. Cette restructuration du formulaire n’est pas présentée comme implémentée dans cette livraison.
+- **L’aperçu est la carte elle-même**, dessinée par `YAMCardFace` — le même composant que `ModernAACCard` sur l’accueil et dans la recherche. Le badge « Voix enregistrée » / « Voix IA » n’apparaît dans l’aperçu que là où il apparaîtrait sur la carte, et une phrase longue agrandit l’aperçu comme elle agrandirait la carte. Un écart entre les deux n’est pas un détail cosmétique : c’est l’outil qui ment sur son résultat.
+- Quand le texte prononcé diffère de l’affiche, une ligne sous l’aperçu le dit explicitement, au lieu de le laisser deviner.
+- **Le texte prononcé alternatif et le moteur individuel** vivent dans `YAMAdvancedSection` « Voix personnalisée pour cette carte », repliée par défaut. Son résumé indique ce qui est actif, et une fiche déjà personnalisée s’ouvre développée : replier ne doit pas masquer.
+- Icônes et couleurs sont proposées par les grilles partagées `YAMIconChoiceGrid` et `YAMSwatchGrid` : cible de 44 pt, nom de chaque symbole et de chaque teinte lu par VoiceOver, sélection marquée par une coche et un état `.isSelected` (formulaires de phrase et de catégorie identiques).
+- **Les erreurs de sauvegarde sont dites.** L’enregistrement passe par `try modelContext.save()` ; en cas d’échec, la fiche reste ouverte, un message s’affiche, et l’écriture est annulée (nouvelle carte retirée, modification restaurée). Le `try? modelContext.save()` silencieux a disparu de ce formulaire.
+- L’enregistrement depuis le compositeur préremplit toujours le texte et la catégorie active.
+
+Ces choix ne sont pas des gains de place pour la place : la section avancée rassemble ce dont on n’a pas besoin à chaque phrase, et rien de ce qui existait n’a été supprimé.
 
 ### D. Catégories · implémenté
 
@@ -102,19 +109,27 @@ Galerie de sept cartes avec miniature de la disposition, nom, description et ind
 
 Système suit le réglage iPadOS ; Clair et Sombre le forcent. L’apparence est globale à l’appareil, indépendante de l’identifiant de thème sauvegardé dans chaque profil. En cas d’échec de la sauvegarde SwiftData, la galerie l’indique sans prétendre que le profil est enregistré.
 
-### G. Profils · écran existant conservé
+### G. Profils · remanié (passe 2)
 
-Accès par le profil de l’en-tête ou les réglages. L’application conserve son utilisateur par défaut, les avatars, la création et la duplication existantes. Changer de profil arrête la lecture, retire le brouillon de l’ancien profil et réévalue la catégorie sélectionnée.
+Accès par le profil de l’en-tête ou par Réglages. La liste est redevenue une liste : avatar, nom, ligne de contexte (thème et voix), et **un seul badge — « Par défaut »**. Le profil actif ne porte pas une étiquette de plus, il porte une coche, annoncée à VoiceOver par `accessibilityLabel("Profil actif")`. Deux badges empilés disaient presque la même chose ; la place était mieux employée à lire un nom long.
 
-**Proposition pour la suite :** liste de profils avec nom, avatar et un seul badge « Par défaut », actions de duplication et de suppression séparées, confirmation avant changement de profil avec brouillon non vide. La disposition détaillée de `UserProfilesView` n’a pas été entièrement réécrite.
+- **Actions de gestion séparées du geste courant :** « Utiliser » est le bouton de la ligne, tandis que renommer, dupliquer, définir par défaut et supprimer sont regroupés dans un menu `⋯` par profil, avec la suppression isolée par un séparateur et son rôle destructeur. Les quatre puces alignées sous chaque ligne, qui réduisaient chaque profil à un bloc de boutons, ont disparu.
+- **Confirmation avant changement de profil quand une phrase est en cours.** L’appelant transmet `hasUnsavedDraft` ; la demande passe par `requestActivation`, et `yamProfileSwitchConfirmation` pose la même question dans la liste et dans le menu d’en-tête — un seul texte partagé, deux chemins, une seule promesse. Sans brouillon, le changement reste immédiat : on ne punit pas l’usage normal.
+- La suppression exige une confirmation distincte, nomme le profil concerné et n’est proposée que s’il en reste au moins un.
+- **La création d’un profil n’écrit plus de données depuis la vue.** Le catalogue de départ (quatre catégories, phrases du premier jour) est fourni par `DataSeedService.seedStarterCategories(for:in:)`, et l’échec de sauvegarde est affiché au lieu d’être avalé.
+- Changer de profil continue d’arrêter la lecture, de retirer le brouillon de l’ancien profil et de réévaluer la catégorie sélectionnée. Les avatars, la création et la duplication existants sont conservés.
 
-### H. Parole et son · écran existant conservé, intégration ajustée
+### H. Parole et son · remanié (passe 2)
 
-Les contrôles Apple, ElevenLabs, voix, vitesse, tonalité, volume, cache et comportement restent dans `SpeechAndSoundSettingsView`. À la sortie, les préférences prises en charge par `ProfileManager` sont enregistrées dans le profil actif.
+`SpeechAndSoundSettingsView` suit l’ordre des besoins : **« Voix principale »** (moteur et voix française), **« Essai »** (phrase modifiable, écoute, arrêt), **« Rythme et volume »** (vitesse, hauteur, volume), **« Comportement »** (lire au toucher, effacer après lecture), puis **`YAMAdvancedSection` « Voix IA, préchargement et cache »** — clé API, voix et modèle ElevenLabs, préparation hors ligne et fichiers en cache. La section avancée s’ouvre seule si le moteur IA est déjà actif, et son résumé dit s’il y a une clé et combien d’audios sont en cache.
 
-**Proposition pour la suite :** « Voix principale », essai de phrase, « Rythme et volume », « Comportement », puis ElevenLabs et cache dans une section avancée. Ne jamais imposer un compte cloud pour communiquer avec les voix Apple disponibles.
+- **Rien n’oblige à un compte cloud.** Les voix Apple restent le chemin par défaut, le secours hors ligne est écrit dans l’écran, et le test de la voix IA désactivé explique qu’aucune clé n’est enregistrée plutôt que de laisser un bouton muet.
+- Le test d’essai partage une seule phrase éditable pour les deux moteurs, avec un bouton qui devient Arrêter pendant la lecture.
+- Le libellé « Rythme et volume » annonce sa portée : ces trois réglages s’appliquent aux voix Apple, donc aussi au secours automatique ; un audio IA téléchargé garde le rythme de sa génération. L’ancien écran laissait croire au contraire.
+- Les couleurs système codées en dur (`#30D158`, `#FF3B30`, `.green`) sont remplacées par `YAMTone`, qui colore icône, fond teinté et contour, jamais un libellé seul.
+- À la sortie, les préférences prises en charge par `ProfileManager` sont enregistrées dans le profil actif (comportement inchangé, déjà en place).
 
-Pour le nouveau bouton Arrêter, la fin des lectures enregistrées/ElevenLabs et l’interruption entre moteurs ont été corrigées. Une réponse réseau tardive peut alimenter le cache mais ne doit plus relancer la lecture interrompue. Les préécoutes d’éditeurs qui appellent directement les services restent à tester séparément.
+Pour le bouton Arrêter, la fin des lectures enregistrées/ElevenLabs et l’interruption entre moteurs avaient été corrigées : une réponse réseau tardive peut alimenter le cache mais ne relance plus une lecture interrompue. Les préécoutes des autres éditeurs qui appellent directement les services restent à tester séparément.
 
 ### I. Plein écran / Face-à-face · implémenté
 
@@ -166,8 +181,11 @@ Les valeurs ci-dessous sont les jetons `YAMSpacing` et `YAMLayout` de `Component
 | Compositeur « Votre phrase » | champ de 64 pt de haut, respiration 14 pt |
 | Commande principale | au moins 44 pt ; Parler au moins 56 pt |
 | Catégorie | au moins 44 pt de haut |
-| Options de carte | 40 × 44 pt |
-| Ligne de réglages | 44 pt de contenu, icône de 28 pt |
+| Options de carte (`cardOptionsWidth`) | 40 × 44 pt, même largeur pour le menu `⋯` des profils |
+| Marge intérieure d’une carte (`cardFaceLeadingPadding` / `cardFaceVerticalPadding`) | 12 pt à gauche, 10 pt vertical |
+| Ligne de réglages, de formulaire et de menu | `rowHeight` 44 pt de contenu, icône de 28 pt |
+| Grilles de choix des formulaires (`swatchColumnMinWidth` / `iconColumnMinWidth`) | colonne ≥ 48 pt (pastilles de couleur, dessin 34 pt) et ≥ 56 pt (icônes, cible 44 pt) |
+| Avatar d’un profil (`avatarSize` / `avatarGlyphSize`) | 38 pt de disque, 34 pt de dessin |
 | Petites puces d’action (`chipHeight`) | 36 pt de contenu + marge du style `.bordered`, soit ≥ 44 pt visés |
 | Fenêtre Réglages | 744 pt de large au plus, contenu centré, hauteur adaptée |
 | Bordure standard | 1 pt ; sélection / contraste renforcé : 2 pt |
@@ -186,6 +204,7 @@ La taille de carte modifie le nombre de colonnes, pas seulement l’icône. Les 
 - **Réduire les animations** : pas de mise à l’échelle ni de rotation animée.
 - **Réduire la transparence / contraste augmenté** : suppression du décor de fond ; cartes opaques.
 - **Contraste renforcé dans l’app** : bordures renforcées et décor supprimé.
+- **Actions de suppression et d’avertissement** : `YAMTone` (`destructive`, `warning`, `positive`) colore l’icône, le fond teinté et le contour. Le libellé garde la couleur de texte du thème, dont le contraste est testé — un texte rouge sur blanc n’est pas lisible, et une couleur seule ne dit rien à VoiceOver.
 - Retour haptique conditionné au réglage ; il n’est jamais indispensable et certains iPad ne le produisent pas.
 
 ## 4. Les six univers demandés
@@ -222,13 +241,22 @@ ContentView
      │   ├─ CategoryManagementView → CategoryEditorView
      │   ├─ SpeechAndSoundSettingsView (existant)
      │   └─ UserProfilesView (existant)
-     ├─ ItemEditorView (existant)
+     ├─ ItemEditorView         Contenu · Apparence · Voix, aperçu = YAMCardFace
      └─ FullScreenTextView
 
-Socle : YAMSpacing · YAMSurface · YAMActionButton · YAMActionLabel
-        YAMPressButtonStyle · YAMAmbientBackground · YAMFeedback
+Socle : YAMSpacing · YAMLayout · YAMSurface · YAMActionButton · YAMActionLabel
+        YAMPressButtonStyle · YAMAmbientBackground · YAMFeedback · YAMTone
+        YAMCardFace · YAMIconChoiceGrid · YAMSwatchGrid · YAMAdvancedSection
+        yamProfileSwitchConfirmation
 Données et audio : modèles SwiftData existants · ProfileManager · SpeechService
+                   DataSeedService (catalogue de départ d’un profil)
 ```
+
+`YAMCardFace` est le point de jonction des deux passes : l’accueil, la recherche et l’aperçu du
+formulaire partagent un seul dessin de carte, donc un seul endroit où changer une carte.
+`YAMAdvancedSection` est partagée par la fiche de phrase et les réglages de voix, pour que
+« ce que l’on range » se ressemble d’un écran à l’autre. `yamProfileSwitchConfirmation` est
+partagée par l’en-tête de l’accueil et la liste des profils : même question, même formule.
 
 - [Écran principal complet](../Views/MainAACView.swift), intégré aux vraies données : aucun faux modèle de production.
 - [Compositeur réutilisable](../Components/CommunicationComposer.swift), piloté par bindings et closures.
@@ -236,22 +264,22 @@ Données et audio : modèles SwiftData existants · ProfileManager · SpeechServ
 - [Thèmes](../Models/AppTheme.swift) et [persistance de l’apparence](../Services/ThemeManager.swift).
 - [Réglages](../Views/SettingsView.swift), [galerie de thèmes](../Views/ThemeSelectionView.swift), [recherche](../Views/SearchView.swift).
 
-Les composants visuels ne sauvegardent pas les phrases. `MainAACView` coordonne les actions et une seule destination de feuille. Les éditeurs existants et SwiftData restent responsables de la sauvegarde. Les singletons existants sont conservés pour limiter la portée de migration ; leur injection en dépendances est une amélioration possible, pas une condition cachée à l’utilisation du code livré.
+Les composants visuels ne sauvegardent pas les phrases. `MainAACView` coordonne les actions et une seule destination de feuille. Les formulaires et SwiftData restent responsables de l’écriture, avec une différence assumée depuis la passe 2 : un échec de sauvegarde s’affiche et l’écriture partielle est annulée, au lieu d’être ignorée. Le catalogue de départ d’un nouveau profil est fourni par `DataSeedService`, non par la vue qui le crée. Les singletons existants sont conservés pour limiter la portée de migration ; leur injection en dépendances est une amélioration possible, pas une condition cachée à l’utilisation du code livré.
 
 ## 6. Limites et validation avant diffusion
 
-**Ce qui est livré :** code SwiftUI de l’accueil, recherche, réglages, thèmes, création/modification des catégories et plein écran ; composants réutilisables ; corrections ciblées de cycle audio et d’isolation des profils ; proposition détaillée pour les formulaires conservés.
+**Ce qui est livré :** code SwiftUI de l’accueil, recherche, réglages, thèmes, création/modification des catégories et plein écran ; composants réutilisables ; corrections ciblées de cycle audio et d’isolation des profils. La **passe 2** reprend les trois écrans conservés : fiche de phrase en trois sections avec aperçu partagé, liste des profils avec confirmation de brouillon, réglages de voix réordonnés autour de l’usage et non du fournisseur.
 
-**Ce qui a été vérifié ici :** tests numériques des palettes, parsing de grammaire sur 14 fichiers ciblés, cohérence des appels en lecture de code, absence d’erreurs d’espacement dans le diff, aperçu web clair/sombre et Dragon Ball dans Chrome.
+**Ce qui a été vérifié ici :** tests numériques des palettes et de la densité, structure de la passe 2 verrouillée par `Tests/test_refonte_pass2.py`, parsing de grammaire sur 17 fichiers ciblés (les trois écrans repris s’y ajoutent, leur ancien blocage du parseur ayant été levé), cohérence des appels en lecture de code, absence d’erreurs d’espacement dans le diff, aperçu web clair/sombre et Dragon Ball dans Chrome.
 
-**Ce qui ne l’a pas été :** compilation SwiftUI, exécution sur iPad, VoiceOver, Switch Control, rendu des SF Symbols, claviers flottant/matériel, animations, performance et sauvegarde après redémarrage. L’environnement est Linux et le dépôt fourni ne contient ni `.xcodeproj`, ni workspace, ni cible de tests Apple.
+**Ce qui ne l’a pas été :** compilation SwiftUI, exécution sur iPad, VoiceOver, Switch Control, rendu des SF Symbols, claviers flottant/matériel, animations, performance et sauvegarde après redémarrage. La passe 2 n’a été vue dans aucun simulateur : ses sections, ses grilles et sa confirmation sont à ouvrir sur iPad avant d’être décrites comme testées. L’environnement est Linux et le dépôt fourni ne contient ni `.xcodeproj`, ni workspace, ni cible de tests Apple.
 
 Voir le [protocole de validation](../Tests/VALIDATION.md) et les [instructions d’intégration](../README.md). Ne pas confondre parsing syntaxique, calcul de contraste et validation native.
 
 ### Risques préexistants à traiter avant une version de production
 
 - La récupération du magasin dans `YAMParleApp` peut supprimer les fichiers de données en cas d’échec d’ouverture. Cette refonte ne modifie pas ce mécanisme : sauvegarde et migration non destructrice sont nécessaires avant diffusion.
-- Certains éditeurs/profils existants ignorent encore les erreurs de sauvegarde ; les formulaires conservés demandent une passe dédiée.
+- Les écrans de la refonte disent leurs échecs de sauvegarde (`try` + message, avec annulation de l’écriture) ; les écrans antérieurs à la refonte — `FavoritesView`, `AACWritingView`, `PhraseBarView`, une partie de `ProfileManager` (duplication, suppression, sauvegarde des réglages) — utilisent encore `try? save()` et passent donc en silence. Unifier ces chemins reste à faire, et n’est pas caché par la passe 2.
 - Le brouillon composé est du texte libre : sa lecture ne rejoue pas une séquence d’enregistrements ni les métadonnées individuelles des cartes. Cela préserve le comportement actuel ; une composition audio par tokens serait un autre chantier.
 - « Effacer après lecture » garde le comportement existant : effacement au lancement de la lecture, avec rétablissement désormais possible, pas attente de la fin effective du son.
 - Pas d’export, de sauvegarde cloud ou de synchronisation ajouté.
