@@ -48,6 +48,7 @@ final class ElevenLabsService: NSObject, AVAudioPlayerDelegate {
     var cachedItems: [ElevenLabsCachedItem] = []
 
     private var audioPlayer: AVAudioPlayer?
+    private var playbackCompletion: (() -> Void)?
 
     let availableModels = [
         ("eleven_multilingual_v2", "Multilingue v2 (Recommandé)"),
@@ -272,33 +273,40 @@ final class ElevenLabsService: NSObject, AVAudioPlayerDelegate {
 
     func playFile(url: URL, identifier: String, onFinished: (() -> Void)? = nil) {
         stopPlayback()
+        playbackCompletion = onFinished
+        errorMessage = nil
         do {
             let session = AVAudioSession.sharedInstance()
             try session.setCategory(.playback, mode: .default)
             try session.setActive(true)
 
-            audioPlayer = try AVAudioPlayer(contentsOf: url)
-            audioPlayer?.delegate = self
-            audioPlayer?.prepareToPlay()
-            audioPlayer?.play()
+            let player = try AVAudioPlayer(contentsOf: url)
+            audioPlayer = player
+            player.delegate = self
+            guard player.prepareToPlay(), player.play() else {
+                errorMessage = "Impossible de démarrer la lecture du fichier audio"
+                stopPlayback()
+                return
+            }
 
             isPlaying = true
             currentlyPlayingId = identifier
         } catch {
             errorMessage = "Erreur de lecture: \(error.localizedDescription)"
-            isPlaying = false
-            currentlyPlayingId = nil
-            onFinished?()
+            stopPlayback()
         }
     }
 
     func stopPlayback() {
-        if let player = audioPlayer, player.isPlaying {
-            player.stop()
-        }
+        let player = audioPlayer
+        let completion = playbackCompletion
         audioPlayer = nil
+        playbackCompletion = nil
+        player?.delegate = nil
+        player?.stop()
         isPlaying = false
         currentlyPlayingId = nil
+        completion?()
     }
 
     func getCachedFile(for phrase: String) -> ElevenLabsCachedItem? {
@@ -308,8 +316,19 @@ final class ElevenLabsService: NSObject, AVAudioPlayerDelegate {
 
     func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
         DispatchQueue.main.async {
-            self.isPlaying = false
-            self.currentlyPlayingId = nil
+            guard self.audioPlayer === player else { return }
+            if !flag {
+                self.errorMessage = "La lecture du fichier audio a échoué"
+            }
+            self.stopPlayback()
+        }
+    }
+
+    func audioPlayerDecodeErrorDidOccur(_ player: AVAudioPlayer, error: Error?) {
+        DispatchQueue.main.async {
+            guard self.audioPlayer === player else { return }
+            self.errorMessage = error?.localizedDescription ?? "Impossible de décoder le fichier audio"
+            self.stopPlayback()
         }
     }
 }

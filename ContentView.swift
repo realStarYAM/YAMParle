@@ -14,6 +14,7 @@ struct ContentView: View {
     var body: some View {
         MainAACView()
             .tint(themeManager.currentTheme.accentColor)
+            .preferredColorScheme(themeManager.appearance.colorScheme)
     }
 }
 

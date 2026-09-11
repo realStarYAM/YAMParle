@@ -1,114 +1,133 @@
-//
-//  CategoryEditorView.swift
-//  YAMParle
-//
-
 import SwiftUI
 import SwiftData
 
 struct CategoryEditorView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
+    @Bindable private var themeManager = ThemeManager.shared
+    var existingCategory: AACCategory? = nil
 
-    @State private var name: String = ""
-    @State private var selectedIcon: String = "folder.fill"
-    @State private var selectedColorHex: String = "#1E73F2"
+    @State private var name = ""
+    @State private var selectedIcon = "folder.fill"
+    @State private var selectedColorHex = "#1E73F2"
+    @State private var saveError: String?
 
-    private let availableIcons = [
-        "folder.fill", "bubble.left.fill", "tag.fill", "star.fill",
-        "heart.fill", "house.fill", "person.fill", "figure.walk",
-        "cart.fill", "fork.knife", "pills.fill", "book.fill",
-        "briefcase.fill", "globe.europe.africa.fill", "tv.fill", "gift.fill"
+    private let icons: [(symbol: String, title: String)] = [
+        ("folder.fill", "Dossier"), ("bubble.left.fill", "Conversation"), ("tag.fill", "Étiquette"),
+        ("star.fill", "Étoile"), ("heart.fill", "Cœur"), ("house.fill", "Maison"),
+        ("person.fill", "Personne"), ("figure.walk", "Déplacement"), ("cart.fill", "Courses"),
+        ("fork.knife", "Repas"), ("pills.fill", "Santé"), ("book.fill", "Livre"),
+        ("briefcase.fill", "Travail"), ("globe.europe.africa.fill", "Monde"), ("tv.fill", "Télévision"), ("gift.fill", "Cadeau")
     ]
-
-    private let paletteColors = [
-        "#1E73F2", "#30D158", "#FF9F0A", "#40CBE0",
-        "#FF375F", "#BF5AF2", "#5E5CE6", "#FFD60A",
-        "#AC8E68", "#64D2FF", "#FF453A", "#8E8E93"
+    private let colors: [(hex: String, title: String)] = [
+        ("#1E73F2", "Bleu"), ("#30D158", "Vert"), ("#FF9F0A", "Orange"), ("#40CBE0", "Turquoise"),
+        ("#FF375F", "Rose"), ("#BF5AF2", "Violet"), ("#5E5CE6", "Indigo"), ("#FFD60A", "Jaune"),
+        ("#AC8E68", "Brun"), ("#64D2FF", "Bleu ciel"), ("#FF453A", "Rouge"), ("#8E8E93", "Gris")
     ]
+    private var theme: AppTheme { themeManager.currentTheme }
 
     var body: some View {
         NavigationStack {
             Form {
-                Section("Nom de la catégorie") {
-                    TextField("Ex: Musique, Émotions...", text: $name)
+                Section("Aperçu") {
+                    Label(name.isEmpty ? "Votre catégorie" : name, systemImage: selectedIcon)
+                        .font(.title3.weight(.semibold))
+                        .foregroundStyle(theme.primaryTextColor)
+                        .padding(16)
+                        .frame(maxWidth: .infinity, minHeight: 64, alignment: .leading)
+                        .background(Color(hex: selectedColorHex).opacity(0.12), in: RoundedRectangle(cornerRadius: theme.buttonCornerRadius))
+                }
+                Section("Nom") {
+                    TextField("Exemple : Musique, Émotions…", text: $name, axis: .vertical)
                         .font(.body)
+                        .accessibilityLabel("Nom de la catégorie")
                 }
-
                 Section("Couleur") {
-                    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 6), spacing: 10) {
-                        ForEach(paletteColors, id: \.self) { hex in
-                            Button {
-                                selectedColorHex = hex
-                            } label: {
-                                Circle()
-                                    .fill(Color(hex: hex))
-                                    .frame(height: 38)
-                                    .overlay(
-                                        Circle()
-                                            .stroke(Color.white, lineWidth: selectedColorHex == hex ? 3 : 0)
-                                    )
-                                    .shadow(color: Color(hex: hex).opacity(selectedColorHex == hex ? 0.6 : 0.2), radius: 4)
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 56), spacing: 12)], spacing: 12) {
+                        ForEach(colors, id: \.hex) { color in
+                            Button { selectedColorHex = color.hex } label: {
+                                Circle().fill(Color(hex: color.hex))
+                                    .frame(width: 40, height: 40)
+                                    .overlay {
+                                        if selectedColorHex == color.hex {
+                                            Image(systemName: "checkmark.circle.fill")
+                                                .symbolRenderingMode(.palette)
+                                                .foregroundStyle(.white, .black)
+                                        }
+                                    }
+                                    .frame(width: 56, height: 56)
+                                    .contentShape(Rectangle())
                             }
                             .buttonStyle(.plain)
+                            .accessibilityLabel(color.title)
+                            .accessibilityAddTraits(selectedColorHex == color.hex ? [.isSelected] : [])
                         }
                     }
-                    .padding(.vertical, 6)
                 }
-
                 Section("Icône") {
-                    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 4), spacing: 12) {
-                        ForEach(availableIcons, id: \.self) { icon in
-                            Button {
-                                selectedIcon = icon
-                            } label: {
-                                Image(systemName: icon)
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 64), spacing: 12)], spacing: 12) {
+                        ForEach(icons, id: \.symbol) { icon in
+                            Button { selectedIcon = icon.symbol } label: {
+                                Image(systemName: icon.symbol)
                                     .font(.title2)
-                                    .foregroundColor(selectedIcon == icon ? .white : .primary)
-                                    .frame(width: 54, height: 54)
-                                    .background(selectedIcon == icon ? Color(hex: selectedColorHex) : Color(UIColor.tertiarySystemFill))
-                                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                                    .foregroundStyle(selectedIcon == icon.symbol ? theme.onAccentColor : theme.primaryTextColor)
+                                    .frame(width: 64, height: 64)
+                                    .background(selectedIcon == icon.symbol ? theme.accentColor : theme.secondaryCardBackground,
+                                                in: RoundedRectangle(cornerRadius: theme.buttonCornerRadius))
                             }
-                            .buttonStyle(.plain)
+                            .buttonStyle(.yamPress)
+                            .accessibilityLabel(icon.title)
+                            .accessibilityAddTraits(selectedIcon == icon.symbol ? [.isSelected] : [])
                         }
                     }
-                    .padding(.vertical, 6)
+                }
+                if let saveError {
+                    Section { Label(saveError, systemImage: "exclamationmark.triangle") }
                 }
             }
-            .navigationTitle("Nouvelle catégorie")
+            .navigationTitle(existingCategory == nil ? "Nouvelle catégorie" : "Modifier la catégorie")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Annuler") {
-                        dismiss()
-                    }
-                }
+                ToolbarItem(placement: .cancellationAction) { Button("Annuler") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Enregistrer") {
-                        saveCategory()
-                        dismiss()
-                    }
-                    .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                    .fontWeight(.bold)
+                    Button("Enregistrer", action: saveCategory)
+                        .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+            }
+            .onAppear {
+                if let category = existingCategory {
+                    name = category.name
+                    selectedIcon = category.iconName
+                    selectedColorHex = category.colorHex
                 }
             }
         }
+        .tint(theme.accentColor)
     }
 
     private func saveCategory() {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
-
-        let newCategory = AACCategory(
-            id: "cat_custom_\(UUID().uuidString.prefix(8))",
-            name: trimmed,
-            iconName: selectedIcon,
-            colorHex: selectedColorHex,
-            sortOrder: 100,
-            isCustom: true,
-            userProfileId: ProfileManager.shared.activeProfileId
+        let category = existingCategory ?? AACCategory(
+            id: "cat_custom_\(UUID().uuidString)", name: trimmed,
+            iconName: selectedIcon, colorHex: selectedColorHex,
+            sortOrder: 100, isCustom: true, userProfileId: ProfileManager.shared.activeProfileId
         )
-        modelContext.insert(newCategory)
-        try? modelContext.save()
+        let previous = (category.name, category.iconName, category.colorHex)
+        category.name = trimmed
+        category.iconName = selectedIcon
+        category.colorHex = selectedColorHex
+        if existingCategory == nil { modelContext.insert(category) }
+        do {
+            try modelContext.save()
+            dismiss()
+        } catch {
+            if existingCategory == nil {
+                modelContext.delete(category)
+            } else {
+                (category.name, category.iconName, category.colorHex) = previous
+            }
+            saveError = "La catégorie n’a pas pu être enregistrée. Réessayez."
+        }
     }
 }

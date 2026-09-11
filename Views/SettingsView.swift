@@ -1,316 +1,158 @@
-//
-//  SettingsView.swift
-//  YAMParle
-//
-
 import SwiftUI
 import SwiftData
-import AVFoundation
 
 struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
-    @Bindable var speechService = SpeechService.shared
-    @Bindable var profileManager = ProfileManager.shared
-    @Bindable var themeManager = ThemeManager.shared
-
+    @Bindable private var profileManager = ProfileManager.shared
+    @Bindable private var themeManager = ThemeManager.shared
     @Query(sort: \UserProfile.createdAt) private var profiles: [UserProfile]
 
-    @AppStorage("yamparle_high_contrast") private var highContrast: Bool = false
-    @AppStorage("yamparle_haptic_feedback") private var hapticFeedback: Bool = true
-    @AppStorage("yamparle_grid_card_size") private var gridCardSize: Double = 1.0
+    @AppStorage("yamparle_high_contrast") private var highContrast = false
+    @AppStorage("yamparle_haptic_feedback") private var hapticFeedback = true
+    @AppStorage("yamparle_grid_card_size") private var gridCardSize = 1.0
 
-    @State private var showResetConfirmation: Bool = false
-    @State private var showExportSuccess: Bool = false
-
-    private var theme: AppTheme {
-        themeManager.currentTheme
-    }
-
+    private var theme: AppTheme { themeManager.currentTheme }
     private var activeProfile: UserProfile? {
-        profiles.first(where: { $0.id == profileManager.activeProfileId }) ?? profiles.first
+        profiles.first { $0.id == profileManager.activeProfileId } ?? profiles.first
     }
 
     var body: some View {
         NavigationStack {
             List {
-                // 1. Profil Utilisateur Actif
                 Section {
                     NavigationLink {
                         UserProfilesView()
                     } label: {
-                        HStack(spacing: 14) {
-                            // Avatar
-                            ZStack {
-                                Circle()
-                                    .fill(theme.accentColor.opacity(0.18))
-                                    .frame(width: 50, height: 50)
-
-                                if let data = activeProfile?.avatarImageData, let img = UIImage(data: data) {
-                                    Image(uiImage: img)
-                                        .resizable()
-                                        .scaledToFill()
-                                        .frame(width: 46, height: 46)
-                                        .clipShape(Circle())
-                                } else {
-                                    Image(systemName: activeProfile?.avatarSymbol ?? "person.crop.circle.fill")
-                                        .font(.title2)
-                                        .foregroundColor(theme.accentColor)
-                                }
-                            }
-
-                            VStack(alignment: .leading, spacing: 3) {
-                                HStack(spacing: 6) {
-                                    Text(activeProfile?.name ?? "Utilisateur")
-                                        .font(.headline.weight(.bold))
-                                    if activeProfile?.isDefault == true {
-                                        Text("Défaut")
-                                            .font(.system(size: 10, weight: .bold, design: .rounded))
-                                            .padding(.horizontal, 6)
-                                            .padding(.vertical, 2)
-                                            .background(Color.secondary.opacity(0.15))
-                                            .clipShape(Capsule())
-                                    }
-                                }
-
-                                Text("Changer, créer ou dupliquer un profil")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                            }
-                        }
-                        .padding(.vertical, 4)
+                        settingsRow(
+                            activeProfile?.name ?? "Utilisateur par défaut",
+                            subtitle: activeProfile?.isDefault == true ? "Profil par défaut · Gérer les utilisateurs" : "Profil actif · Gérer les utilisateurs",
+                            icon: activeProfile?.avatarSymbol ?? "person.crop.circle"
+                        )
                     }
-                } header: {
-                    Text("PROFIL ACTIF")
-                        .font(.caption.weight(.bold))
-                }
+                } header: { Text("Votre espace") }
 
-                // 2. Personnalisation & Thèmes
                 Section {
                     NavigationLink {
                         ThemeSelectionView()
                     } label: {
-                        settingsRow(
-                            icon: theme.icon,
-                            iconColor: theme.accentColor,
-                            title: "Thèmes Visuels",
-                            subtitle: "Classique, Dragon Ball, Windows, macOS, Ubuntu...",
-                            badge: theme.name
-                        )
+                        settingsRow("Thèmes et apparence", subtitle: "\(theme.name) · \(themeManager.appearance.title)", icon: "paintpalette")
                     }
-                } header: {
-                    Text("APPARENCE")
-                        .font(.caption.weight(.bold))
-                }
+                } header: { Text("Apparence") }
 
-                // 3. Parole et Son
                 Section {
                     NavigationLink {
                         SpeechAndSoundSettingsView()
-                    } label: {
-                        settingsRow(
-                            icon: "waveform.circle.fill",
-                            iconColor: Color(hex: "#AF52DE"),
-                            title: "Parole et Son",
-                            subtitle: "Voix Apple, ElevenLabs IA, enregistrements personnels",
-                            badge: activeProfile?.preferredVoiceEngine == "elevenlabs" ? "ElevenLabs" : "Voix Apple"
-                        )
-                    }
-                } header: {
-                    Text("VOIX & AUDIO")
-                        .font(.caption.weight(.bold))
-                }
-
-                // 4. Accessibilité & Ergonomie
-                Section {
-                    Toggle(isOn: $hapticFeedback) {
-                        HStack(spacing: 12) {
-                            settingsIcon(name: "hand.tap.fill", color: Color(hex: "#FF9500"))
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("Retour haptique au toucher")
-                                    .font(.subheadline.weight(.semibold))
-                                Text("Vibration légère lors de la sélection des phrases")
-                                    .font(.caption2)
-                                    .foregroundColor(.secondary)
+                            .onDisappear {
+                                if let profile = activeProfile {
+                                    profileManager.saveCurrentSettingsToProfile(profile, in: modelContext)
+                                }
                             }
-                        }
+                    } label: {
+                        settingsRow("Parole et son", subtitle: "Voix, vitesse et lecture au toucher", icon: "waveform")
                     }
+                    NavigationLink {
+                        CategoryManagementView()
+                    } label: {
+                        settingsRow("Catégories", subtitle: "Organiser et renommer vos catégories", icon: "square.grid.2x2")
+                    }
+                } header: { Text("Communication") }
 
+                Section {
                     Toggle(isOn: $highContrast) {
-                        HStack(spacing: 12) {
-                            settingsIcon(name: "circle.lefthalf.filled", color: Color(hex: "#007AFF"))
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("Contraste renforcé")
-                                    .font(.subheadline.weight(.semibold))
-                                Text("Accentue les bordures des cartes et des boutons")
-                                    .font(.caption2)
-                                    .foregroundColor(.secondary)
-                            }
-                        }
+                        settingsRow("Contraste renforcé", subtitle: "Bordures plus visibles, fond sans décor", icon: "circle.lefthalf.filled")
                     }
-
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack {
-                            settingsIcon(name: "square.grid.2x2.fill", color: Color(hex: "#34C759"))
-                            Text("Taille des boutons de la grille")
-                                .font(.subheadline.weight(.semibold))
-                            Spacer()
-                            Text(gridCardSize == 1.0 ? "Standard" : (gridCardSize > 1.0 ? "Grande" : "Compacte"))
-                                .font(.caption.weight(.bold))
-                                .foregroundColor(theme.accentColor)
-                        }
-                        Slider(value: $gridCardSize, in: 0.8...1.3, step: 0.1)
-                            .tint(theme.accentColor)
+                    Toggle(isOn: $hapticFeedback) {
+                        settingsRow("Retour haptique", subtitle: "Si votre appareil le prend en charge", icon: "hand.tap")
                     }
-                    .padding(.vertical, 4)
+                    VStack(alignment: .leading, spacing: 12) {
+                        settingsRow("Taille des cartes", subtitle: "Moins de cartes, plus d’espace pour toucher", icon: "rectangle.expand.vertical")
+                        Picker("Taille des cartes", selection: $gridCardSize) {
+                            Text("Compacte").tag(0.8)
+                            Text("Standard").tag(1.0)
+                            Text("Grande").tag(1.3)
+                        }
+                        .pickerStyle(.menu)
+                        .frame(minHeight: 56)
+                    }
                 } header: {
-                    Text("ACCESSIBILITÉ ET DISPOSITION")
-                        .font(.caption.weight(.bold))
+                    Text("Confort d’utilisation")
+                } footer: {
+                    Text("La taille du texte et la réduction des animations suivent les réglages d’accessibilité de l’iPad. L’ordre des phrases reste stable. Ces préférences de confort s’appliquent à tous les profils.")
                 }
 
-                // 5. Données et Réinitialisation
                 Section {
-                    Button(role: .destructive) {
-                        showResetConfirmation = true
-                    } label: {
-                        HStack(spacing: 12) {
-                            settingsIcon(name: "arrow.triangle.2.circlepath", color: Color(hex: "#FF3B30"))
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("Restaurer les phrases par défaut")
-                                    .font(.subheadline.weight(.semibold))
-                                    .foregroundColor(Color(hex: "#FF3B30"))
-                                Text("Réinitialise les catégories et phrases initiales")
-                                    .font(.caption2)
-                                    .foregroundColor(.secondary)
-                            }
-                        }
+                    LabeledContent("Application", value: "YAMParle")
+                    if let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String {
+                        LabeledContent("Version", value: version)
                     }
-
-                    Button {
-                        showExportSuccess = true
-                    } label: {
-                        HStack(spacing: 12) {
-                            settingsIcon(name: "square.and.arrow.up.fill", color: Color(hex: "#5856D6"))
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("Sauvegarder ce profil AAC")
-                                    .font(.subheadline.weight(.semibold))
-                                    .foregroundColor(theme.primaryTextColor)
-                                Text("Enregistre vos phrases favorites en sécurité")
-                                    .font(.caption2)
-                                    .foregroundColor(.secondary)
-                            }
-                        }
-                    }
-                } header: {
-                    Text("GESTION DU CONTENU")
-                        .font(.caption.weight(.bold))
-                }
-
-                // 6. À propos
-                Section {
-                    HStack {
-                        Text("Application")
-                        Spacer()
-                        Text("YAMParle CAA / AAC")
-                            .foregroundColor(.secondary)
-                    }
-                    HStack {
-                        Text("Version")
-                        Spacer()
-                        Text("2.7.0 Premium")
-                            .foregroundColor(.secondary)
-                    }
-                    HStack {
-                        Text("Thème actuel")
-                        Spacer()
-                        Text(theme.name)
-                            .foregroundColor(theme.accentColor)
-                            .fontWeight(.semibold)
-                    }
-                } header: {
-                    Text("À PROPOS")
-                        .font(.caption.weight(.bold))
-                }
+                    Text("Vos phrases sont enregistrées sur cet appareil. Aucun export de sauvegarde n’est proposé dans cet écran.")
+                        .font(.footnote)
+                        .foregroundStyle(theme.secondaryTextColor)
+                } header: { Text("À propos et données") }
             }
+            .listStyle(.insetGrouped)
+            .scrollContentBackground(.hidden)
+            .background { YAMAmbientBackground(theme: theme) }
             .navigationTitle("Réglages")
-            .navigationBarTitleDisplayMode(.inline)
+            .navigationBarTitleDisplayMode(.large)
             .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Fermer") {
-                        dismiss()
-                    }
-                    .font(.headline.weight(.bold))
-                }
-            }
-            .confirmationDialog(
-                "Restaurer les phrases d'origine ?",
-                isPresented: $showResetConfirmation
-            ) {
-                Button("Restaurer tout le catalogue", role: .destructive) {
-                    DataSeedService.seedInitialDataIfNeeded(in: modelContext)
-                }
-                Button("Annuler", role: .cancel) { }
-            } message: {
-                Text("Cette action restaurera les 10 catégories initiales et leurs phrases d'origine.")
-            }
-            .alert("Profil sauvegardé", isPresented: $showExportSuccess) {
-                Button("OK", role: .cancel) { }
-            } message: {
-                Text("Vos catégories et phrases sont sauvegardées sur cet appareil.")
+                ToolbarItem(placement: .confirmationAction) { Button("Fermer") { dismiss() } }
             }
         }
         .tint(theme.accentColor)
+        .preferredColorScheme(themeManager.appearance.colorScheme)
     }
 
-    // MARK: - Row Helpers
-    @ViewBuilder
-    private func settingsIcon(name: String, color: Color) -> some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(color)
-                .frame(width: 32, height: 32)
-
-            Image(systemName: name)
-                .font(.system(size: 16, weight: .bold))
-                .foregroundColor(.white)
-        }
-    }
-
-    @ViewBuilder
-    private func settingsRow(
-        icon: String,
-        iconColor: Color,
-        title: String,
-        subtitle: String,
-        badge: String? = nil
-    ) -> some View {
-        HStack(spacing: 12) {
-            settingsIcon(name: icon, color: iconColor)
-
-            VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 6) {
-                    Text(title)
-                        .font(.headline)
-                        .foregroundColor(theme.primaryTextColor)
-
-                    if let badge {
-                        Text(badge)
-                            .font(.system(size: 10, weight: .bold, design: .rounded))
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(iconColor.opacity(0.15))
-                            .foregroundColor(iconColor)
-                            .clipShape(Capsule())
-                    }
-                }
-
+    private func settingsRow(_ title: String, subtitle: String, icon: String) -> some View {
+        HStack(alignment: .center, spacing: 16) {
+            Image(systemName: icon)
+                .font(.title3.weight(theme.iconWeight))
+                .foregroundStyle(theme.accentColor)
+                .frame(width: 44, height: 44)
+                .background(theme.secondaryCardBackground, in: RoundedRectangle(cornerRadius: 12))
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(theme.primaryTextColor)
                 Text(subtitle)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .lineLimit(1)
+                    .font(.subheadline)
+                    .foregroundStyle(theme.secondaryTextColor)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
-        .padding(.vertical, 2)
+        .padding(.vertical, 8)
+    }
+}
+
+struct CategoryManagementView: View {
+    @Query(sort: \AACCategory.sortOrder) private var categories: [AACCategory]
+    @Bindable private var profileManager = ProfileManager.shared
+    @State private var editingCategory: AACCategory?
+    @State private var addingCategory = false
+
+    var body: some View {
+        List {
+            Section {
+                ForEach(categories.filter { $0.userProfileId == profileManager.activeProfileId }) { category in
+                    Button { editingCategory = category } label: {
+                        Label(category.name, systemImage: category.iconName)
+                            .font(.body)
+                            .frame(minHeight: 56)
+                    }
+                }
+                Button { addingCategory = true } label: {
+                    Label("Nouvelle catégorie", systemImage: "folder.badge.plus")
+                        .frame(minHeight: 56)
+                }
+            } footer: {
+                Text("Pour modifier une phrase, utilisez son bouton Options sur l’écran principal. Renommer une catégorie conserve toutes ses phrases.")
+            }
+        }
+        .navigationTitle("Catégories")
+        .sheet(item: $editingCategory) { category in CategoryEditorView(existingCategory: category) }
+        .sheet(isPresented: $addingCategory) { CategoryEditorView() }
     }
 }
 
