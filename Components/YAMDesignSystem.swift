@@ -89,13 +89,30 @@ struct YAMSheetPresentation: ViewModifier {
         switch kind {
         case .window:
             if #available(iOS 18.0, *) {
-                content
-                    .presentationSizing(.form)
+                if UIDevice.current.userInterfaceIdiom == .pad {
+                    // Sur iPad paysage : largeur confortable (850-1000 pt), hauteur maximale ~80% de l'écran
+                    content
+                        .presentationSizing(.page)
+                        .presentationDetents([.fraction(0.80), .large])
+                        .presentationDragIndicator(.visible)
+                } else {
+                    content
+                        .presentationSizing(.form)
+                        .presentationDetents([.medium, .large])
+                        .presentationDragIndicator(.visible)
+                }
             } else {
-                content
-                    .frame(maxWidth: YAMLayout.windowMaxWidth)
-                    .presentationDetents([.medium, .large])
-                    .presentationDragIndicator(.visible)
+                if UIDevice.current.userInterfaceIdiom == .pad {
+                    content
+                        .frame(maxWidth: 960)
+                        .presentationDetents([.fraction(0.80), .large])
+                        .presentationDragIndicator(.visible)
+                } else {
+                    content
+                        .frame(maxWidth: YAMLayout.windowMaxWidth)
+                        .presentationDetents([.medium, .large])
+                        .presentationDragIndicator(.visible)
+                }
             }
         case .sheet:
             content
@@ -155,23 +172,87 @@ extension ButtonStyle where Self == YAMPressButtonStyle {
 
 private struct YAMSurface: ViewModifier {
     @Environment(\.colorSchemeContrast) private var contrast
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @AppStorage("yamparle_high_contrast") private var highContrast = false
     let theme: AppTheme
     var selected = false
 
+    /// La vitre n'existe que si l'utilisateur n'a pas réduit la transparence
+    /// et si les contrastes élevés ne sont pas demandés ; sinon fond plein.
+    private var glassEnabled: Bool {
+        theme.cardStyle == .glass && !reduceTransparency && !highContrast && contrast != .increased
+    }
+    private var elevated: Bool { theme.cardStyle == .raised }
+    private var withoutShadow: Bool { theme.cardStyle == .flat }
+
+    private var safeRadius: CGFloat {
+        max(12, theme.cornerRadius)
+    }
+
     func body(content: Content) -> some View {
+        let shape = RoundedRectangle(cornerRadius: safeRadius, style: .continuous)
         content
-            .background(selected ? theme.secondaryCardBackground : theme.cardBackground)
-            .clipShape(RoundedRectangle(cornerRadius: theme.cornerRadius, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: theme.cornerRadius, style: .continuous)
-                    .strokeBorder(
-                        selected ? theme.accentColor : (highContrast || contrast == .increased ? theme.primaryTextColor : theme.borderColor),
-                        lineWidth: highContrast || contrast == .increased || selected ? 2 : theme.borderWidth
-                    )
-                    .allowsHitTesting(false)
+            .background { backgroundView }
+            .clipShape(shape)
+            .overlay { edge.allowsHitTesting(false) }
+            .shadow(
+                color: withoutShadow ? .clear : theme.shadowColor,
+                radius: elevated ? 10 : 8,
+                y: elevated ? 4 : 3
+            )
+    }
+
+    @ViewBuilder
+    private var backgroundView: some View {
+        switch theme.cardStyle {
+        case .gradient:
+            LinearGradient(
+                colors: [
+                    selected ? theme.secondaryCardBackground : theme.cardBackground,
+                    theme.secondaryCardBackground
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+        case .glass where glassEnabled:
+            ZStack {
+                Rectangle().fill(.ultraThinMaterial)
+                Rectangle().fill((selected ? theme.secondaryCardBackground : theme.cardBackground).opacity(0.45))
             }
-            .shadow(color: theme.shadowColor, radius: 8, y: 3)
+        default:
+            // .solid, .raised, .inset, .bevel, .flat et .glass forcé plein.
+            Rectangle().fill(selected ? theme.secondaryCardBackground : theme.cardBackground)
+        }
+    }
+
+    @ViewBuilder
+    private var edge: some View {
+        let shape = RoundedRectangle(cornerRadius: safeRadius, style: .continuous)
+        switch theme.cardStyle {
+        case .bevel:
+            // Rendu moderne subtil : bordure soignée sans faux relief 3D rétro des années 90.
+            shape.strokeBorder(
+                selected ? theme.accentColor : (highContrast || contrast == .increased ? theme.primaryTextColor : theme.borderColor),
+                lineWidth: highContrast || contrast == .increased || selected ? 2 : theme.borderWidth
+            )
+        case .inset:
+            ZStack(alignment: .top) {
+                shape.strokeBorder(
+                    selected ? theme.accentColor : theme.borderColor,
+                    lineWidth: selected ? 2 : theme.borderWidth
+                )
+                Rectangle()
+                    .fill(theme.primaryTextColor.opacity(selected ? 0.2 : 0.12))
+                    .frame(height: 2)
+                    .padding(.top, 1)
+                    .clipShape(shape)
+            }
+        default:
+            shape.strokeBorder(
+                selected ? theme.accentColor : (highContrast || contrast == .increased ? theme.primaryTextColor : theme.borderColor),
+                lineWidth: highContrast || contrast == .increased || selected ? 2 : theme.borderWidth
+            )
+        }
     }
 }
 
@@ -276,12 +357,17 @@ struct YAMActionButton: View {
                 .padding(.horizontal, 12)
                 .padding(.vertical, 7)
                 .frame(maxWidth: isFullWidth ? .infinity : nil, minHeight: max(height, YAMSpacing.minimumTarget))
-                .background(background, in: RoundedRectangle(cornerRadius: theme.buttonCornerRadius, style: .continuous))
+                .background(background, in: RoundedRectangle(cornerRadius: max(10, theme.buttonCornerRadius), style: .continuous))
                 .overlay {
-                    if variant.carriesTone {
-                        RoundedRectangle(cornerRadius: theme.buttonCornerRadius, style: .continuous)
-                            .strokeBorder(tone.opacity(0.65), lineWidth: 1)
+                    ZStack {
+                        if variant.isDominant {
+                            dominantEdge
+                        } else if variant.carriesTone {
+                            RoundedRectangle(cornerRadius: max(10, theme.buttonCornerRadius), style: .continuous)
+                                .strokeBorder(tone.opacity(0.65), lineWidth: 1)
+                        }
                     }
+                    .allowsHitTesting(false)
                 }
         }
         .buttonStyle(.yamPress)
@@ -296,9 +382,15 @@ struct YAMActionButton: View {
         }
     }
 
+    /// Boutons teintés et en contour : le texte garde la couleur de base du
+    /// thème (contraste testé sur la surface), l'icône porte l'accent.
+    private var usesTextPrimaryForeground: Bool {
+        theme.buttonStyle == .tinted || theme.buttonStyle == .outline
+    }
+
     private var foreground: Color {
         switch variant {
-        case .hero, .primary: return theme.onAccentColor
+        case .hero, .primary: return usesTextPrimaryForeground ? theme.primaryTextColor : theme.onAccentColor
         default: return theme.primaryTextColor
         }
     }
@@ -306,19 +398,46 @@ struct YAMActionButton: View {
     /// Le ton ne colore que le pictogramme : le texte garde un contraste testé sur sa surface.
     private var iconForeground: Color {
         switch variant {
-        case .hero, .primary: return theme.onAccentColor
+        case .hero, .primary: return usesTextPrimaryForeground ? theme.accentColor : theme.onAccentColor
         case .destructive, .warning: return tone
         default: return theme.primaryTextColor
         }
     }
 
-    private var background: Color {
+    private var safeButtonRadius: CGFloat {
+        max(10, theme.buttonCornerRadius)
+    }
+
+    @ViewBuilder
+    private var dominantEdge: some View {
+        switch theme.buttonStyle {
+        case .tinted:
+            RoundedRectangle(cornerRadius: safeButtonRadius, style: .continuous)
+                .strokeBorder(theme.accentColor.opacity(0.55), lineWidth: 1)
+        case .outline:
+            RoundedRectangle(cornerRadius: safeButtonRadius, style: .continuous)
+                .strokeBorder(theme.accentColor, lineWidth: 1.5)
+        default:
+            EmptyView()
+        }
+    }
+
+    private var background: AnyShapeStyle {
         switch variant {
-        case .hero(let color), .primary(let color): return color
-        case .destructive: return YAMTone.destructive.opacity(0.12)
-        case .warning: return YAMTone.warning.opacity(0.14)
-        case .neutral: return .clear
-        default: return theme.secondaryCardBackground
+        case .hero(let color), .primary(let color):
+            switch theme.buttonStyle {
+            case .tinted: return AnyShapeStyle(color.opacity(0.16))
+            case .outline: return AnyShapeStyle(Color.clear)
+            case .gradient:
+                return AnyShapeStyle(
+                    LinearGradient(colors: [color, theme.secondaryAccentColor], startPoint: .top, endPoint: .bottom)
+                )
+            default: return AnyShapeStyle(color)
+            }
+        case .destructive: return AnyShapeStyle(YAMTone.destructive.opacity(0.12))
+        case .warning: return AnyShapeStyle(YAMTone.warning.opacity(0.14))
+        case .neutral: return AnyShapeStyle(Color.clear)
+        default: return AnyShapeStyle(theme.secondaryCardBackground)
         }
     }
 }

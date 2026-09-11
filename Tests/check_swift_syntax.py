@@ -15,10 +15,15 @@ root = Path(__file__).resolve().parents[1]
 parser = Parser(Language(tree_sitter_swift.language()))
 files = [root / path for path in (
     'Components/YAMDesignSystem.swift', 'Components/CommunicationComposer.swift',
-    'ContentView.swift', 'Models/AppTheme.swift', 'Services/ThemeManager.swift',
+    'ContentView.swift', 'Models/AppTheme.swift', 'Models/ThemeDefinition.swift',
+    'Models/Themes/ThemeDataEssentials.swift', 'Models/Themes/ThemeDataWindows.swift',
+    'Models/Themes/ThemeDataLinux.swift', 'Models/Themes/ThemeDataMacOS.swift',
+    'Models/Themes/ThemeDataAnime.swift', 'Models/Themes/ThemeDataPays.swift',
+    'Services/ThemeManager.swift', 'Services/ThemeRegistry.swift',
     'Services/SpeechService.swift', 'Services/AudioRecorderService.swift',
     'Services/DataSeedService.swift', 'Views/MainAACView.swift',
     'Views/SettingsView.swift', 'Views/ThemeSelectionView.swift',
+    'Views/ThemeGalleryView.swift',
     'Views/SearchView.swift', 'Views/CategoryEditorView.swift', 'Views/FullScreenTextView.swift',
     'Views/ItemEditorView.swift', 'Views/UserProfilesView.swift',
     'Views/SpeechAndSoundSettingsView.swift',

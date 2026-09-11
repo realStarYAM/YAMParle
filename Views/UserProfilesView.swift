@@ -340,9 +340,15 @@ struct CreateUserProfileSheet: View {
                 }
 
                 Section {
+                    // Le catalogue complet, groupé par catégorie : les données
+                    // sont légères (aucune couleur n'est construite ici).
                     Picker("Thème visuel", selection: $selectedThemeId) {
-                        ForEach(AppTheme.allThemes) { candidate in
-                            Label(candidate.name, systemImage: candidate.icon).tag(candidate.id)
+                        ForEach(ThemeCategory.allCases) { category in
+                            Section(category.title) {
+                                ForEach(ThemeRegistry.shared.definitions(in: category)) { candidate in
+                                    Label(candidate.name, systemImage: candidate.icon).tag(candidate.id)
+                                }
+                            }
                         }
                     }
                     .pickerStyle(.menu)

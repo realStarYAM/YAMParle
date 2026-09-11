@@ -26,6 +26,12 @@ final class ThemeManager {
     static let shared = ThemeManager()
 
     private let userDefaultsKey = "yamparle_active_theme_id"
+    private static let favoritesKeyPrefix = "yamparle_theme_favorites_"
+    private static let fallbackProfileId = "sans_profil"
+
+    /// Favoris de la galerie de thèmes, par profil. La clé UserDefaults est
+    /// propre à chaque profil utilisateur : chaque profil garde ses favoris.
+    private(set) var favoritesByProfile: [String: Set<String>] = [:]
 
     var activeThemeId: String {
         didSet { UserDefaults.standard.set(activeThemeId, forKey: userDefaultsKey) }
@@ -69,5 +75,40 @@ final class ThemeManager {
     @MainActor
     func resetToClassic(profile: UserProfile? = nil, in context: ModelContext? = nil) {
         setTheme(id: "classic", profile: profile, in: context)
+    }
+
+    // MARK: - Favoris de la galerie de thèmes
+
+    private static func favoritesKey(_ profileId: String) -> String {
+        favoritesKeyPrefix + profileId
+    }
+
+    /// Favoris sauvegardés pour un profil ( UserDefaults, par identifiant
+    /// de profil ). Lecture paresseuse : le dossier n'est chargé qu'au
+    /// premier besoin, et la lecture est sans effet de bord.
+    func favorites(for profileId: String?) -> Set<String> {
+        let pid = profileId ?? Self.fallbackProfileId
+        if let cached = favoritesByProfile[pid] {
+            return cached
+        }
+        let stored = UserDefaults.standard.stringArray(forKey: Self.favoritesKey(pid)) ?? []
+        return Set(stored)
+    }
+
+    func isFavorite(_ themeId: String, for profileId: String?) -> Bool {
+        favorites(for: profileId).contains(themeId)
+    }
+
+    func toggleFavorite(_ themeId: String, for profileId: String?) {
+        let pid = profileId ?? Self.fallbackProfileId
+        var next = favorites(for: pid)
+        if next.contains(themeId) {
+            next.remove(themeId)
+        } else {
+            next.insert(themeId)
+        }
+        favoritesByProfile[pid] = next
+        UserDefaults.standard.set(next.sorted(), forKey: Self.favoritesKey(pid))
+        YAMFeedback.selection()
     }
 }

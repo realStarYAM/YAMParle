@@ -26,6 +26,15 @@ public struct AppTheme: Identifiable, Equatable, Hashable {
     public let iconWeight: Font.Weight
     public let ornament: Ornament
 
+    // Styles portés par la nouvelle galerie de thèmes (ThemeRegistry).
+    // Les valeurs par défaut reproduisent exactement le rendu d'origine
+    // des sept premiers thèmes : aucun changement visuel pour eux.
+    public var selectedColor: Color = Color(hex: "#5551C9")
+    public var destructiveColor: Color = Color(hex: "#A62C22")
+    public var buttonStyle: ThemeButtonStyle = .filled
+    public var cardStyle: ThemeCardStyle = .solid
+    public var category: ThemeCategory = .essentials
+
     public enum Ornament {
         case glow, line, orbit
     }
@@ -144,7 +153,22 @@ public struct AppTheme: Identifiable, Equatable, Hashable {
         .classic, .dragonBall, .windows, .macOS, .ubuntu, .linuxMint, .dragon
     ]
 
+    /// Les sept thèmes d'origine, indexés par identifiant. Le registre
+    /// les sert tels quels : leur rendu reste strictement identique.
+    public static let legacyInstances: [String: AppTheme] = [
+        "classic": .classic,
+        "dragon_ball": .dragonBall,
+        "windows": .windows,
+        "macos": .macOS,
+        "ubuntu": .ubuntu,
+        "linux_mint": .linuxMint,
+        "dragon": .dragon
+    ]
+
+    /// Résolution par identifiant, déléguée au ThemeRegistry : les
+    /// identifiants des anciens thèmes répondent comme avant, et les
+    /// identifiants de la nouvelle galerie répondent aussi.
     public static func theme(for id: String) -> AppTheme {
-        allThemes.first(where: { $0.id == id }) ?? .classic
+        ThemeRegistry.shared.theme(for: id)
     }
 }
