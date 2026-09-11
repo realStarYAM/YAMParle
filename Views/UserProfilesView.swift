@@ -31,32 +31,32 @@ struct UserProfilesView: View {
                 ForEach(profiles) { profile in
                     let isActive = profile.id == profileManager.activeProfileId
 
-                    VStack(spacing: 12) {
-                        HStack(spacing: 14) {
-                            // Large Avatar
+                    VStack(spacing: YAMSpacing.small) {
+                        HStack(spacing: YAMSpacing.large) {
+                            // Avatar
                             ZStack {
                                 Circle()
                                     .fill(profile.themeColor.opacity(0.18))
-                                    .frame(width: 52, height: 52)
+                                    .frame(width: 38, height: 38)
 
                                 if let data = profile.avatarImageData, let img = UIImage(data: data) {
                                     Image(uiImage: img)
                                         .resizable()
                                         .scaledToFill()
-                                        .frame(width: 48, height: 48)
+                                        .frame(width: 34, height: 34)
                                         .clipShape(Circle())
                                 } else {
                                     Image(systemName: profile.avatarSymbol)
-                                        .font(.title2.weight(.bold))
+                                        .font(.title3.weight(.bold))
                                         .foregroundColor(profile.themeColor)
                                 }
                             }
 
                             // Info
-                            VStack(alignment: .leading, spacing: 4) {
+                            VStack(alignment: .leading, spacing: 2) {
                                 HStack(spacing: 6) {
                                     Text(profile.name)
-                                        .font(.headline.weight(.bold))
+                                        .font(.callout.weight(.semibold))
                                         .foregroundColor(theme.primaryTextColor)
 
                                     if profile.isDefault {
@@ -82,7 +82,7 @@ struct UserProfilesView: View {
 
                                 HStack(spacing: 6) {
                                     Text("Thème : \(profile.activeTheme.name)")
-                                        .font(.caption.weight(.semibold))
+                                        .font(.caption2.weight(.semibold))
                                         .foregroundColor(profile.activeTheme.accentColor)
 
                                     Text("•")
@@ -90,7 +90,7 @@ struct UserProfilesView: View {
                                         .foregroundColor(.secondary)
 
                                     Text(profile.preferredVoiceEngine == "elevenlabs" ? "ElevenLabs" : "Voix Apple")
-                                        .font(.caption)
+                                        .font(.caption2)
                                         .foregroundColor(.secondary)
                                 }
                             }
@@ -104,10 +104,11 @@ struct UserProfilesView: View {
                                     profileManager.applyProfileSettings(profile)
                                 } label: {
                                     Text("Activer")
-                                        .font(.subheadline.weight(.bold))
+                                        .font(.callout.weight(.semibold))
                                         .foregroundColor(theme.accentColor)
-                                        .padding(.horizontal, 12)
-                                        .padding(.vertical, 6)
+                                        .padding(.horizontal, 10)
+                                        .padding(.vertical, 4)
+                                        .frame(minHeight: YAMSpacing.minimumTarget)
                                         .background(theme.accentColor.opacity(0.12))
                                         .clipShape(Capsule())
                                 }
@@ -116,13 +117,14 @@ struct UserProfilesView: View {
                         }
 
                         // Bottom Actions Row
-                        HStack(spacing: 8) {
+                        HStack(spacing: YAMSpacing.small) {
                             if !profile.isDefault {
                                 Button {
                                     profileManager.setDefaultProfile(profile, in: modelContext, allProfiles: profiles)
                                 } label: {
                                     Label("Défaut", systemImage: "star")
-                                        .font(.caption.weight(.bold))
+                                        .font(.caption.weight(.semibold))
+                                        .frame(minHeight: YAMLayout.chipHeight)
                                 }
                                 .buttonStyle(.bordered)
                                 .tint(.secondary)
@@ -133,7 +135,8 @@ struct UserProfilesView: View {
                                 newProfileName = profile.name
                             } label: {
                                 Label("Renommer", systemImage: "pencil")
-                                    .font(.caption.weight(.bold))
+                                    .font(.caption.weight(.semibold))
+                                    .frame(minHeight: YAMLayout.chipHeight)
                             }
                             .buttonStyle(.bordered)
                             .tint(.secondary)
@@ -144,7 +147,8 @@ struct UserProfilesView: View {
                                 profileManager.applyProfileSettings(copy)
                             } label: {
                                 Label("Dupliquer", systemImage: "doc.on.doc")
-                                    .font(.caption.weight(.bold))
+                                    .font(.caption.weight(.semibold))
+                                    .frame(minHeight: YAMLayout.chipHeight)
                             }
                             .buttonStyle(.bordered)
                             .tint(.secondary)
@@ -157,15 +161,17 @@ struct UserProfilesView: View {
                                     showDeleteConfirmation = true
                                 } label: {
                                     Image(systemName: "trash")
-                                        .font(.caption.weight(.bold))
+                                        .font(.caption.weight(.semibold))
                                         .foregroundColor(Color(hex: "#FF3B30"))
+                                        .frame(width: YAMLayout.chipHeight, height: YAMLayout.chipHeight)
+                                        .contentShape(Rectangle())
                                 }
                                 .buttonStyle(.bordered)
                                 .tint(Color(hex: "#FF3B30"))
                             }
                         }
                     }
-                    .padding(.vertical, 6)
+                    .padding(.vertical, YAMSpacing.tiny)
                 }
             } header: {
                 Text("PROFILS AAC ENREGISTRÉS (\(profiles.count))")
@@ -181,13 +187,12 @@ struct UserProfilesView: View {
                 } label: {
                     HStack(spacing: 10) {
                         Image(systemName: "person.badge.plus.fill")
-                            .font(.headline)
+                            .font(.subheadline)
                         Text("Créer un nouveau profil utilisateur")
-                            .font(.headline.weight(.bold))
+                            .font(.callout.weight(.semibold))
                     }
                     .foregroundColor(theme.accentColor)
-                    .frame(maxWidth: .infinity, alignment: .center)
-                    .padding(.vertical, 4)
+                    .frame(maxWidth: .infinity, minHeight: YAMSpacing.minimumTarget, alignment: .center)
                 }
             }
         }

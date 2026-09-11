@@ -2,7 +2,8 @@
 
 ## Résultats disponibles dans l’environnement Linux
 
-- `test_design_tokens.py` : 5 tests, couvrant les sept identifiants persistés et les paires de couleurs en clair/sombre. Les contrastes testés concernent texte principal, secondaire, accent et texte des actions sur surfaces opaques. Pas les photos personnalisées, tous les composites transparents ou les écrans legacy.
+- `test_design_tokens.py` : 5 tests, couvrant les sept identifiants persistés et les paires de couleurs en clair/sombre.
+- `test_layout_metrics.py` : 14 tests sur les dimensions compactes — jetons d’espacement et de mise en page, plancher tactile de 44 pt, largeur de la fenêtre Réglages bornée à 700–780 pt, hauteurs de carte et de compositeur, style de présentation des feuilles, et absence de hauteurs ou de corps de texte codés en dur dans les fichiers de base (contrôle de non-régression des deux passes visuelles). Les contrastes testés concernent texte principal, secondaire, accent et texte des actions sur surfaces opaques. Pas les photos personnalisées, tous les composites transparents ou les écrans legacy.
 - `check_swift_syntax.py` : analyse de grammaire sur 14 fichiers explicitement listés. Ni résolution des types, ni macros, ni SDK iOS. Le parseur tiers rejette des constructions préexistantes de `ItemEditorView`, `UserProfilesView` et `ElevenLabsService` ; ces fichiers ne sont pas dans ce contrôle.
 - `git diff --check` : absence d’erreurs d’espacement.
 - La maquette HTML est inspectée dans Chrome. Elle n’est pas un test de l’application native.
@@ -24,6 +25,20 @@ Cocher uniquement après exécution dans le vrai projet Xcode.
 - [ ] VoiceOver : actions personnalisées Lire/Modifier fonctionnelles. La recherche annonce seulement l’ajout, même si la lecture au toucher est activée à l’accueil.
 - [ ] Switch Control et Accès complet au clavier : toutes les fonctions atteignables sans geste long obligatoire.
 - [ ] Réduire les animations : aucune réduction d’échelle ni rotation animée. Réduire la transparence et contraste accru : décor retiré.
+
+### Densité iPad · passe compacte
+
+À cocher après exécution sur iPad Pro 11 pouces, **paysage et portrait**.
+
+- [ ] Écran principal paysage (1194 × 834 pt) : une colonne de cartes de plus qu’avant la passe, aucune barre de défilement horizontale, colonne Catégories de 208 pt.
+- [ ] Écran principal portrait (834 × 1194 pt) : page verticale défilante, en-tête sur une ligne si possible, bloc « Votre phrase » de hauteur réduite à 64 pt de champ.
+- [ ] Fenêtre Réglages : carte centrée, jamais plein écran, largeur de contenu ≤ 744 pt, titre `.inline`, Fermer toujours accessible ; les cinq sections restent lisibles sans défilement excessif.
+- [ ] Sur iPadOS 17 (si encore visé) : la fenêtre Réglages occupe la hauteur de la feuille mais le contenu reste centré à 744 pt — vérifier l’absence de bandes vides incohérentes.
+- [ ] Toutes les cibles tactiles mesurées ≥ 44 pt : Parler, commandes du compositeur, cartes, catégories, lignes de réglages, puces d’édition.
+- [ ] VoiceOver : libellés, valeurs et actions personnalisées toujours présents sur les cartes, les catégories et les lignes de réglages ; ordre en-tête → compositeur → commandes → catégories → grille inchangé.
+- [ ] Dynamic Type : corps par défaut, XXXL, Accessibilité 1 et 5 — rien ne se chevauche, la grille passe à une colonne, les cartes gardent leur texte intégral.
+- [ ] Les trois tailles de carte (compacte / standard / grande) restent visiblement différentes et plus denses qu’avant la passe.
+- [ ] Réduire la transparence / contraste augmenté : décor absent, bordures visibles ; l’ombre volontairement réduite ne crée aucun halo résiduel.
 - [ ] Contraste renforcé dans l’app : bordures visibles et fond sans décor. Comparer avec Accessibility Inspector.
 - [ ] Aucun symbole SF absent sur la version minimale ; contrôle des photos claires/sombres et libellés très longs.
 - [ ] Taille des cartes compacte/standard/grande réellement différente, sans changer l’ordre.

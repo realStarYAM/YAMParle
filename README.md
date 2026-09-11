@@ -5,11 +5,12 @@ Application de communication alternative et améliorée (CAA/AAC) pour iPad, en 
 ## Refonte de l’interface
 
 - [Proposition complète, écran par écran et design system](Docs/REFONTE-UI.md)
+- [Contrôle de densité iPad Pro 11″](Docs/apercu-compact.html) : avant / après, paysage et portrait, à l’échelle 1 px = 1 pt. Maquette de vérification des proportions, pas l’app iOS.
 - [Maquette web de référence avec sept thèmes et modes clair/sombre](Docs/apercu-interface.html) : télécharger le fichier puis l’ouvrir dans un navigateur. Ce n’est pas l’application iOS.
 - [Écran principal SwiftUI](Views/MainAACView.swift)
 - [Composants réutilisables](Components/YAMDesignSystem.swift)
 - [Compositeur avec clavier iOS natif](Components/CommunicationComposer.swift)
-- [Checklist iPad et tests statiques](Tests/README.md)
+- [Checklist iPad et tests statiques](Tests/README.md), dont la section « Densité iPad · passe compacte »
 
 ## Intégration dans Xcode
 
@@ -26,7 +27,7 @@ Les modèles SwiftData et leurs identifiants de thèmes restent inchangés ; auc
 
 ## Contrôles exécutables sans Xcode
 
-Contrastes des palettes :
+Contrastes des palettes et dimensions de la passe compacte :
 
 ```sh
 python3 -m unittest discover -s Tests -p 'test_*.py' -v

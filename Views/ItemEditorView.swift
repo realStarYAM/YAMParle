@@ -75,24 +75,24 @@ struct ItemEditorView: View {
                         VStack(spacing: 8) {
                             Capsule()
                                 .fill(Color(hex: selectedColorHex))
-                                .frame(width: 36, height: 5)
+                                .frame(width: 30, height: 4)
                                 .padding(.top, 6)
 
                             ZStack(alignment: .topTrailing) {
                                 ZStack {
                                     Circle()
                                         .fill(Color(hex: selectedColorHex).opacity(0.15))
-                                        .frame(width: 58, height: 58)
+                                        .frame(width: 46, height: 46)
 
                                     if let data = customImageData, let uiImage = UIImage(data: data) {
                                         Image(uiImage: uiImage)
                                             .resizable()
                                             .scaledToFill()
-                                            .frame(width: 54, height: 54)
+                                            .frame(width: 42, height: 42)
                                             .clipShape(Circle())
                                     } else {
                                         Image(systemName: selectedIcon)
-                                            .font(.system(size: 26, weight: .bold))
+                                            .font(.system(size: 22, weight: .bold))
                                             .foregroundColor(Color(hex: selectedColorHex))
                                     }
                                 }
@@ -116,14 +116,14 @@ struct ItemEditorView: View {
                                 .multilineTextAlignment(.center)
                                 .padding(.bottom, 6)
                         }
-                        .frame(width: 130, height: 130)
+                        .frame(width: 104, height: 104)
                         .background(Color(UIColor.secondarySystemGroupedBackground))
-                        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                         .overlay(
-                            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
                                 .strokeBorder(Color(hex: selectedColorHex).opacity(0.35), lineWidth: 1.5)
                         )
-                        .shadow(color: Color.black.opacity(0.06), radius: 6, y: 3)
+                        .shadow(color: Color.black.opacity(0.05), radius: 4, y: 2)
                         Spacer()
                     }
                     .listRowBackground(Color.clear)

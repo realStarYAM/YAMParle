@@ -1,12 +1,91 @@
 import SwiftUI
 
+/// Espacements de l’interface. Volontairement compacts : l’application cible l’iPad,
+/// où de grandes marges donnaient l’impression d’une interface zoomée.
+/// Les valeurs restent exprimées en points et s’appliquent en plus du Dynamic Type.
 enum YAMSpacing {
-    static let small: CGFloat = 8
-    static let medium: CGFloat = 12
-    static let large: CGFloat = 16
-    static let section: CGFloat = 24
-    static let page: CGFloat = 28
-    static let minimumTarget: CGFloat = 56
+    static let tiny: CGFloat = 4
+    static let small: CGFloat = 6
+    static let medium: CGFloat = 8
+    static let large: CGFloat = 12
+    static let section: CGFloat = 16
+    /// Marge extérieure d’une page large (iPad en paysage, Split View confortable).
+    static let page: CGFloat = 18
+    /// Marge extérieure d’une page étroite (portrait, fenêtre petite).
+    static let pageCompact: CGFloat = 12
+    /// Cible tactile minimale : 44 pt, plancher Apple, jamais réduit sous cette valeur.
+    static let minimumTarget: CGFloat = 44
+}
+
+/// Dimensions des éléments : cartes, colonnes, compositeur, fenêtres modales.
+/// Un seul endroit pour changer les proportions de l’application.
+enum YAMLayout {
+    /// Largeur de la colonne Catégories en disposition large.
+    static let categorySidebarWidth: CGFloat = 208
+    /// Largeur minimale d’une carte de phrase ; plus elle est petite, plus la grille tient de cartes.
+    static let gridCardMinWidth: CGFloat = 168
+    static let gridSpacing: CGFloat = 10
+    /// Hauteur minimale d’une carte de phrase, hors texte qui dépasse.
+    static let cardMinHeight: CGFloat = 92
+    static let cardSymbolSize: CGFloat = 19
+    static let cardArtworkSize: CGFloat = 36
+    /// Hauteur du champ « Votre phrase ».
+    static let composerEditorHeight: CGFloat = 64
+    static let composerPadding: CGFloat = 14
+    /// Commande principale « Parler » : dominante, mais plus énorme.
+    static let heroHeight: CGFloat = 56
+    static let controlHeight: CGFloat = YAMSpacing.minimumTarget
+    static let rowHeight: CGFloat = 44
+    /// Petites puces `.bordered` : le style ajoute ~4 pt de marge verticale de chaque côté, la cible dépasse 44 pt.
+    static let chipHeight: CGFloat = 36
+    /// Fenêtre Réglages : carte centrée façon iPadOS, jamais plein écran.
+    static let windowMaxWidth: CGFloat = 744
+    /// Colonne de contenu à l’intérieur de la fenêtre, pour éviter les lignes kilométriques.
+    static let windowContentWidth: CGFloat = 744
+}
+
+/// Style de présentation d’une feuille.
+enum YAMSheetKind {
+    /// Fenêtre centrée de type Réglages iPadOS : largeur bornée, hauteur adaptée au contenu.
+    case window
+    /// Feuille standard, hauteur maximale, pour les formulaires et la recherche.
+    case sheet
+}
+
+/// Applique le style de présentation choisi à une feuille.
+///
+/// - iPadOS 18 et plus : `presentationSizing(.form)` donne une carte centrée, ni plein écran,
+///   dont la hauteur suit le contenu. C’est le comportement natif des Réglages iPadOS.
+/// - iPadOS 17 : les detents sont ignorées en largeur régulière ; on borne donc la largeur du
+///   contenu, et les detents restent actives pour l’iPhone et Split View.
+struct YAMSheetPresentation: ViewModifier {
+    let kind: YAMSheetKind
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        switch kind {
+        case .window:
+            if #available(iOS 18.0, *) {
+                content
+                    .presentationSizing(.form)
+            } else {
+                content
+                    .frame(maxWidth: YAMLayout.windowMaxWidth)
+                    .presentationDetents([.medium, .large])
+                    .presentationDragIndicator(.visible)
+            }
+        case .sheet:
+            content
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
+        }
+    }
+}
+
+extension View {
+    func yamSheetPresentation(_ kind: YAMSheetKind = .sheet) -> some View {
+        modifier(YAMSheetPresentation(kind: kind))
+    }
 }
 
 enum YAMFeedback {
@@ -53,7 +132,7 @@ private struct YAMSurface: ViewModifier {
                     )
                     .allowsHitTesting(false)
             }
-            .shadow(color: theme.shadowColor, radius: 14, y: 5)
+            .shadow(color: theme.shadowColor, radius: 8, y: 3)
     }
 }
 
@@ -75,17 +154,17 @@ struct YAMAmbientBackground: View {
             if !reduceTransparency && !highContrast && contrast != .increased {
                 switch theme.ornament {
                 case .glow:
-                    RadialGradient(colors: [theme.accentColor.opacity(0.1), .clear], center: .topTrailing, startRadius: 0, endRadius: 620)
+                    RadialGradient(colors: [theme.accentColor.opacity(0.1), .clear], center: .topTrailing, startRadius: 0, endRadius: 460)
                 case .line:
                     Rectangle()
                         .fill(theme.secondaryAccentColor.opacity(0.14))
-                        .frame(height: 3)
+                        .frame(height: 2)
                 case .orbit:
                     Circle()
-                        .stroke(theme.secondaryAccentColor.opacity(0.07), lineWidth: 36)
-                        .frame(width: 460, height: 460)
-                        .offset(x: 180, y: -300)
-                }
+                        .stroke(theme.secondaryAccentColor.opacity(0.07), lineWidth: 26)
+                        .frame(width: 340, height: 340)
+                        .offset(x: 150, y: -220)
+                    }
             }
         }
         .clipped()
@@ -97,6 +176,14 @@ struct YAMAmbientBackground: View {
 
 enum YAMActionButtonVariant {
     case hero(Color), primary(Color), secondary, destructive, warning, neutral
+
+    /// Les actions dominantes gardent un corps de texte supérieur aux actions secondaires.
+    var isDominant: Bool {
+        switch self {
+        case .hero, .primary: return true
+        default: return false
+        }
+    }
 }
 
 struct YAMActionLabel: View {
@@ -106,11 +193,11 @@ struct YAMActionLabel: View {
 
     var body: some View {
         Label(title, systemImage: icon)
-            .font(.system(.body, design: theme.fontDesign, weight: .semibold))
+            .font(.system(.callout, design: theme.fontDesign, weight: .semibold))
             .multilineTextAlignment(.center)
             .foregroundStyle(theme.primaryTextColor)
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
             .frame(minHeight: YAMSpacing.minimumTarget)
             .background(theme.secondaryCardBackground, in: RoundedRectangle(cornerRadius: theme.buttonCornerRadius))
     }
@@ -122,7 +209,7 @@ struct YAMActionButton: View {
     var variant: YAMActionButtonVariant = .secondary
     var isSpeaking = false
     var isFullWidth = true
-    var height: CGFloat = YAMSpacing.minimumTarget
+    var height: CGFloat = YAMLayout.controlHeight
     var action: () -> Void
 
     @Environment(\.isEnabled) private var isEnabled
@@ -135,11 +222,11 @@ struct YAMActionButton: View {
             action()
         } label: {
             Label(title, systemImage: isSpeaking ? "stop.fill" : icon)
-                .font(.system(.body, design: theme.fontDesign, weight: .semibold))
+                .font(.system(variant.isDominant ? .body : .callout, design: theme.fontDesign, weight: .semibold))
                 .multilineTextAlignment(.center)
                 .foregroundStyle(foreground)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 7)
                 .frame(maxWidth: isFullWidth ? .infinity : nil, minHeight: max(height, YAMSpacing.minimumTarget))
                 .background(background, in: RoundedRectangle(cornerRadius: theme.buttonCornerRadius, style: .continuous))
         }
@@ -172,7 +259,7 @@ struct ModernAACCard: View {
     let onEdit: () -> Void
 
     @Bindable private var themeManager = ThemeManager.shared
-    @ScaledMetric(relativeTo: .title3) private var symbolSize: CGFloat = 25
+    @ScaledMetric(relativeTo: .body) private var symbolSize: CGFloat = YAMLayout.cardSymbolSize
     private var theme: AppTheme { themeManager.currentTheme }
     private var color: Color { item.effectiveColor ?? categoryColor }
 
@@ -182,39 +269,42 @@ struct ModernAACCard: View {
                 YAMFeedback.selection()
                 onTap()
             } label: {
-                VStack(alignment: .leading, spacing: 20) {
+                VStack(alignment: .leading, spacing: 8) {
                     Group {
                         if let data = item.customImageData, let image = UIImage(data: data) {
                             Image(uiImage: image)
                                 .resizable()
                                 .scaledToFill()
-                                .frame(width: 48, height: 48)
+                                .frame(width: YAMLayout.cardArtworkSize, height: YAMLayout.cardArtworkSize)
                                 .clipShape(RoundedRectangle(cornerRadius: theme.buttonCornerRadius / 2))
                         } else {
                             Image(systemName: item.iconName)
                                 .font(.system(size: symbolSize, weight: theme.iconWeight))
                                 .foregroundStyle(theme.accentColor)
-                                .frame(minWidth: 48, minHeight: 48)
+                                .frame(
+                                    minWidth: YAMLayout.cardArtworkSize,
+                                    minHeight: YAMLayout.cardArtworkSize * 3 / 4
+                                )
                                 .background(color.opacity(0.1), in: RoundedRectangle(cornerRadius: theme.buttonCornerRadius / 2))
                         }
                     }
                     .accessibilityHidden(true)
 
                     Text(item.displayLabel)
-                        .font(.system(.title3, design: theme.fontDesign, weight: .semibold))
+                        .font(.system(.body, design: theme.fontDesign, weight: .semibold))
                         .foregroundStyle(theme.primaryTextColor)
                         .multilineTextAlignment(.leading)
                         .fixedSize(horizontal: false, vertical: true)
 
                     if item.hasCustomAudio {
                         Label(item.audioSourceType == "recording" ? "Voix enregistrée" : "Voix IA", systemImage: "waveform")
-                            .font(.caption)
+                            .font(.caption2)
                             .foregroundStyle(theme.secondaryTextColor)
                     }
                 }
-                .frame(maxWidth: .infinity, minHeight: 132, alignment: .topLeading)
-                .padding(.leading, 20)
-                .padding(.vertical, 20)
+                .frame(maxWidth: .infinity, minHeight: YAMLayout.cardMinHeight, alignment: .topLeading)
+                .padding(.leading, 12)
+                .padding(.vertical, 10)
                 .contentShape(Rectangle())
             }
             .buttonStyle(.yamPress)
@@ -228,9 +318,9 @@ struct ModernAACCard: View {
                 Button(action: onEdit) { Label("Modifier la phrase", systemImage: "pencil") }
             } label: {
                 Image(systemName: "ellipsis")
-                    .font(.body.weight(.semibold))
+                    .font(.footnote.weight(.semibold))
                     .foregroundStyle(theme.secondaryTextColor)
-                    .frame(width: 48, height: 56)
+                    .frame(width: 40, height: YAMSpacing.minimumTarget)
                     .contentShape(Rectangle())
             }
             .accessibilityLabel("Options pour : \(item.displayLabel)")
@@ -253,30 +343,31 @@ struct ModernCategoryTile: View {
             YAMFeedback.selection()
             onSelect()
         } label: {
-            HStack(spacing: 12) {
+            HStack(spacing: 8) {
                 Image(systemName: category.iconName)
-                    .font(.body.weight(theme.iconWeight))
+                    .font(.footnote.weight(theme.iconWeight))
                     .foregroundStyle(theme.accentColor)
-                    .frame(width: 32, height: 36)
-                    .background(category.color.opacity(0.1), in: RoundedRectangle(cornerRadius: 10))
+                    .frame(width: 26, height: 30)
+                    .background(category.color.opacity(0.1), in: RoundedRectangle(cornerRadius: 8))
                     .accessibilityHidden(true)
                 Text(category.name)
-                    .font(.system(.body, design: theme.fontDesign, weight: isSelected ? .semibold : .medium))
+                    .font(.system(.callout, design: theme.fontDesign, weight: isSelected ? .semibold : .medium))
                     .fixedSize(horizontal: false, vertical: true)
-                Spacer(minLength: 8)
+                Spacer(minLength: 6)
                 if isSelected {
                     Image(systemName: "checkmark")
+                        .font(.caption.weight(.semibold))
                         .foregroundStyle(theme.accentColor)
                 } else {
                     Text("\(count)")
-                        .font(.caption.monospacedDigit())
+                        .font(.caption2.monospacedDigit())
                         .foregroundStyle(theme.secondaryTextColor)
                 }
             }
             .foregroundStyle(theme.primaryTextColor)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 10)
-            .frame(minHeight: 60)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .frame(minHeight: YAMLayout.rowHeight)
             .background(isSelected ? theme.secondaryCardBackground : theme.cardBackground,
                         in: RoundedRectangle(cornerRadius: theme.buttonCornerRadius))
             .overlay {

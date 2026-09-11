@@ -14,24 +14,24 @@ struct CommunicationComposer: View {
     let onFullScreen: () -> Void
 
     @Environment(\.dynamicTypeSize) private var typeSize
-    @ScaledMetric(relativeTo: .title2) private var editorHeight: CGFloat = 96
+    @ScaledMetric(relativeTo: .title2) private var editorHeight: CGFloat = YAMLayout.composerEditorHeight
 
     private var isEmpty: Bool { text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
     private var actionColumns: [GridItem] {
-        [GridItem(.adaptive(minimum: typeSize.isAccessibilitySize ? 220 : 140), spacing: 12)]
+        [GridItem(.adaptive(minimum: typeSize.isAccessibilitySize ? 190 : 116), spacing: YAMSpacing.medium)]
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack(alignment: .firstTextBaseline) {
+        VStack(alignment: .leading, spacing: YAMSpacing.medium) {
+            HStack(alignment: .firstTextBaseline, spacing: YAMSpacing.small) {
                 Text("Votre phrase")
-                    .font(.headline)
+                    .font(.subheadline.weight(.semibold))
                     .foregroundStyle(theme.primaryTextColor)
                     .accessibilityAddTraits(.isHeader)
                 Spacer()
                 if isSpeaking {
                     Label("Lecture en cours", systemImage: "waveform")
-                        .font(.subheadline)
+                        .font(.caption)
                         .foregroundStyle(theme.secondaryTextColor)
                 }
             }
@@ -40,15 +40,15 @@ struct CommunicationComposer: View {
                 editor
                 speakButton
             } else {
-                HStack(alignment: .center, spacing: 24) {
+                HStack(alignment: .center, spacing: YAMSpacing.large) {
                     editor
-                    speakButton.frame(width: 180)
+                    speakButton.frame(width: 152)
                 }
             }
 
             Rectangle().fill(theme.borderColor).frame(height: 1).accessibilityHidden(true)
 
-            LazyVGrid(columns: actionColumns, spacing: 12) {
+            LazyVGrid(columns: actionColumns, spacing: YAMSpacing.medium) {
                 YAMActionButton(
                     title: focus.wrappedValue ? "Masquer" : "Clavier",
                     icon: focus.wrappedValue ? "keyboard.chevron.compact.down" : "keyboard"
@@ -77,7 +77,7 @@ struct CommunicationComposer: View {
                 .accessibilityLabel("Autres actions sur la phrase")
             }
         }
-        .padding(20)
+        .padding(YAMLayout.composerPadding)
         .yamSurface(theme, selected: focus.wrappedValue)
     }
 
@@ -96,7 +96,7 @@ struct CommunicationComposer: View {
                     .font(.system(.title2, design: theme.fontDesign, weight: .medium))
                     .foregroundStyle(theme.secondaryTextColor)
                     .padding(.horizontal, 5)
-                    .padding(.top, 8)
+                    .padding(.top, 3)
                     .allowsHitTesting(false)
                     .accessibilityHidden(true)
             }
@@ -109,7 +109,7 @@ struct CommunicationComposer: View {
             title: isSpeaking ? "Arrêter" : "Parler",
             icon: isSpeaking ? "stop.fill" : "speaker.wave.2.fill",
             variant: .hero(theme.accentColor),
-            height: 72,
+            height: YAMLayout.heroHeight,
             action: onSpeak
         )
         .disabled(isEmpty && !isSpeaking)

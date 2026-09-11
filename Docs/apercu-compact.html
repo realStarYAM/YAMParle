@@ -1,0 +1,333 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>YAMParle · contrôle de densité iPad Pro 11″</title>
+<style>
+  :root{
+    --bg:#F4F5FA; --surface:#FFFFFF; --elevated:#ECECF7; --accent:#5551C9;
+    --ink:#202735; --ink2:#586174; --border:#D9DEE8; --onAccent:#FFFFFF;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:#1b1e28;color:#e8eaf2;font:13px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+  header{position:sticky;top:0;z-index:5;display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:10px 16px;background:#141722;border-bottom:1px solid #2b2f3d}
+  header h1{font-size:14px;margin:0 12px 0 0;font-weight:650}
+  .seg{display:flex;border:1px solid #3a3f52;border-radius:8px;overflow:hidden}
+  .seg button{appearance:none;border:0;background:transparent;color:#c9cde0;padding:6px 12px;font:inherit;cursor:pointer}
+  .seg button[aria-pressed=true]{background:var(--accent);color:#fff}
+  .note{margin-left:auto;color:#8f96b3;font-size:12px}
+  .stage{padding:18px 16px 40px}
+  .device{margin:0 auto;background:#000;border-radius:26px;padding:12px;box-shadow:0 24px 60px rgba(0,0,0,.5)}
+  .screen{position:relative;border-radius:16px;overflow:hidden;background:var(--bg);color:var(--ink);transform-origin:top left}
+  .app{position:absolute;inset:0;overflow:hidden;display:flex;flex-direction:column}
+  .app::before{content:"";position:absolute;right:-140px;top:-160px;width:460px;height:460px;border-radius:50%;background:radial-gradient(circle at 70% 30%,rgba(85,81,201,.10),transparent 62%);pointer-events:none}
+  .pad{position:relative;display:flex;flex-direction:column;flex:1;min-height:0}
+  .row{display:flex;align-items:center}
+  .brand-ic{display:grid;place-items:center;background:var(--accent);color:var(--onAccent)}
+  .brand-t{font-weight:750;letter-spacing:-.01em}
+  .brand-s{color:var(--ink2)}
+  .chip{display:flex;align-items:center;justify-content:center;gap:6px;background:var(--elevated);border:1px solid var(--border);color:var(--ink);font-weight:600;white-space:nowrap}
+  .panel{background:var(--surface);border:1px solid var(--border)}
+  .composer{display:flex;flex-direction:column}
+  .editor{font-weight:550;color:var(--ink2);overflow:hidden}
+  .editor b{color:var(--ink);font-weight:600}
+  .divider{height:1px;background:var(--border);flex:none}
+  .hero{display:flex;align-items:center;justify-content:center;gap:7px;background:var(--accent);color:var(--onAccent);font-weight:700;flex:none}
+  .cat{display:flex;align-items:center;gap:8px;border:1px solid var(--border);background:var(--surface);color:var(--ink);font-weight:550}
+  .cat.sel{border-color:var(--accent);background:var(--elevated);font-weight:650}
+  .cat .tick{margin-left:auto;color:var(--accent);font-weight:700}
+  .cat .cnt{margin-left:auto;color:var(--ink2);font-size:11px}
+  .catic{display:grid;place-items:center;color:var(--accent);flex:none}
+  .grid{display:grid}
+  .card{display:flex;gap:0;flex-direction:column;justify-content:flex-start;background:var(--surface);border:1px solid var(--border);color:var(--ink);position:relative;overflow:hidden}
+  .card .art{display:grid;place-items:center;color:var(--accent);flex:none}
+  .card .lbl{font-weight:650;line-height:1.2}
+  .card .more{position:absolute;top:0;right:0;display:grid;place-items:center;color:var(--ink2)}
+  .scroll{overflow:auto;min-height:0}
+  .title-h{font-weight:700}
+  .title-s{color:var(--ink2)}
+  /* fenêtre Réglages */
+  .dim{position:absolute;inset:0;background:rgba(12,14,22,.34);display:grid;place-items:center}
+  .win{background:var(--bg);border:1px solid var(--border);box-shadow:0 30px 70px rgba(0,0,0,.35);display:flex;flex-direction:column;overflow:hidden}
+  .win.full{position:absolute;inset:0;border:0;box-shadow:none;border-radius:0}
+  .navbar{display:flex;align-items:center;gap:10px;padding:0 14px;background:color-mix(in srgb,var(--surface) 82%,transparent);border-bottom:1px solid var(--border);flex:none}
+  .navbar .t{font-weight:700;margin:0 auto}
+  .navbar .done{color:var(--accent);font-weight:650}
+  .grp{display:flex;flex-direction:column;gap:1px;background:var(--elevated);border-radius:11px;overflow:hidden}
+  .cell{display:flex;align-items:center;gap:10px;background:var(--surface)}
+  .cell .ic{display:grid;place-items:center;color:var(--accent);flex:none}
+  .cell .tx{display:flex;flex-direction:column;min-width:0}
+  .cell .tx b{font-weight:600}
+  .cell .tx span{color:var(--ink2)}
+  .cell .chev{margin-left:auto;color:var(--ink2)}
+  .cell .sw{margin-left:auto;width:38px;height:23px;border-radius:99px;background:var(--accent);position:relative;flex:none}
+  .cell .sw::after{content:"";position:absolute;top:2px;right:2px;width:19px;height:19px;border-radius:50%;background:#fff}
+  .cell .sw.off{background:#cfd4e2}
+  .cell .sw.off::after{right:auto;left:2px}
+  .sec-h{color:var(--ink2);font-weight:650;text-transform:uppercase;letter-spacing:.04em}
+  .metrics{max-width:1180px;margin:0 auto;padding:0 16px 50px;display:grid;grid-template-columns:repeat(auto-fit,minmax(232px,1fr));gap:10px}
+  .metric{background:#171b26;border:1px solid #2b2f3d;border-radius:10px;padding:10px 12px}
+  .metric b{display:block;font-size:20px;color:#fff;font-variant-numeric:tabular-nums}
+  .metric span{color:#9aa2bd;font-size:11.5px;text-transform:uppercase;letter-spacing:.06em}
+  .metric em{display:block;color:#7f87a5;font-style:normal;font-size:11.5px;margin-top:4px}
+  .legend{max-width:1180px;margin:0 auto;padding:0 16px 26px;color:#9aa2bd;font-size:12.5px}
+</style>
+</head>
+<body>
+<header>
+  <h1>YAMParle · iPad Pro 11″</h1>
+  <div class="seg" id="segState">
+    <button data-v="before" aria-pressed="false">Avant</button>
+    <button data-v="after" aria-pressed="true">Après (compact)</button>
+  </div>
+  <div class="seg" id="segOrient">
+    <button data-v="land" aria-pressed="true">Paysage 1194 × 834</button>
+    <button data-v="port" aria-pressed="false">Portrait 834 × 1194</button>
+  </div>
+  <div class="seg" id="segSheet">
+    <button data-v="none" aria-pressed="true">Écran principal</button>
+    <button data-v="settings" aria-pressed="false">Réglages ouverts</button>
+  </div>
+  <div class="note">1 px = 1 pt · maquette de contrôle, pas l’app SwiftUI</div>
+</header>
+
+<div class="stage"><div class="device" id="device"><div class="screen" id="screen"><div class="app" id="app"></div></div></div></div>
+<div class="legend">Les valeurs proviennent des jetons <code>YAMSpacing</code> / <code>YAMLayout</code> côté « Après » et des constantes d’origine côté « Avant ». Le nombre de cartes visibles est mesuré dans le DOM après mise en page, pas théorique.</div>
+<div class="metrics" id="metrics"></div>
+
+<script>
+const TOKENS = {
+  before: {
+    label:'Avant', page:28, pageCompact:16, block:24, inner:16,
+    sidebar:248, cardMin:200, gridGap:16, cardMinH:132, cardArt:48, cardIcon:25, cardGap:20, cardPad:20,
+    composerPad:20, composerGap:16, editor:96, heroH:72, ctrlH:56, ctrlPad:12, actionMin:140, actionGap:12,
+    headerIcon:48, headerGap:16, rowH:56, radius:24, btnRadius:18, shadow:'0 5px 14px rgba(0,0,0,.045)',
+    title:'1532px', sub:'15px', cardText:'20px', win:'full', winWidth:0, navLarge:true,
+    winRowH:60, winRowPad:8, winIcon:44, winRowText:'17px', winSub:'15px', winGap:16, winSecGap:20
+  },
+  after: {
+    label:'Après', page:18, pageCompact:12, block:8, inner:8,
+    sidebar:208, cardMin:168, gridGap:10, cardMinH:92, cardArt:36, cardIcon:19, cardGap:8, cardPad:12,
+    composerPad:14, composerGap:8, editor:64, heroH:56, ctrlH:44, ctrlPad:7, actionMin:116, actionGap:8,
+    headerIcon:32, headerGap:12, rowH:44, radius:18, btnRadius:13, shadow:'0 3px 8px rgba(0,0,0,.045)',
+    title:'20px', sub:'13px', cardText:'17px', win:'card', winWidth:744, navLarge:false,
+    winRowH:44, winRowPad:0, winIcon:28, winRowText:'16px', winSub:'13px', winGap:12, winSecGap:12
+  }
+};
+const DEVICES = { land:{w:1194,h:834,label:'paysage'}, port:{w:834,h:1194,label:'portrait'} };
+const CATS = [['Conversation','💬',21],['Besoins','❤️',14],['Émotions','🙂',13],['Activités','🚶',12],['Repas','🍽️',9],['Santé','💊',7]];
+const PHRASES = ['Bonjour','Bonsoir','Bonne journée','Comment ça va ?','Ça va bien','Merci','Oui','Non','Peut-être','Attendez un instant','Je n’aime pas ça','Je l’aime','À plus tard','Au revoir','Excusez-moi','Quoi de neuf ?','Aidez-moi','Pardon'];
+
+let state = { t:'after', o:'land', s:'none' };
+const el = (tag, cls, style) => { const n = document.createElement(tag); if(cls) n.className = cls; if(style) Object.assign(n.style, style); return n; };
+
+function fontFor(px){ return `500 ${px}px -apple-system,"SF Pro Text",sans-serif`; }
+
+function card(k, text){
+  const c = el('div','card',{borderRadius:k.radius*0.62+'px', padding:k.cardPad*0.55+'px '+k.cardPad+'px', gap:k.cardGap+'px', minHeight:k.cardMinH+'px', boxShadow:k.shadow});
+  const art = el('div','art',{width:k.cardArt+'px',height:k.cardArt+'px',background:'rgba(85,81,201,.10)',borderRadius:(k.btnRadius/2)+'px',font:`${k.cardIcon}px`});
+  art.textContent = ['👋','🌙','☀️','💬','🙂','❤️','✅','❌','⏳','🙅','🫶','👋','🚪','🤝','❓','🍎','💊','🎨'][PHRASES.indexOf(text)%18];
+  const lbl = el('div','lbl'); lbl.textContent = text; lbl.style.font = fontFor(parseFloat(k.cardText));
+  c.append(art, lbl);
+  const more = el('div','more',{width:k.ctrlH*0.9+'px',height:k.ctrlH*0.8+'px',font:'15px'}); more.textContent='⋯'; c.append(more);
+  if(['Merci','Oui','Ça va bien'].includes(text)){
+    const meta = el('div','', {font:'11px',color:'var(--ink2)'}); meta.textContent = '∿ Voix enregistrée'; c.append(meta);
+  }
+  return c;
+}
+
+function gridFor(k, width){
+  const g = el('div','grid');
+  const gap = k.gridGap;
+  let cols = Math.max(1, Math.floor((width + gap) / (k.cardMin + gap)));
+  g.style.gridTemplateColumns = `repeat(${cols}, minmax(0,1fr))`;
+  g.style.gap = gap+'px';
+  g.dataset.cols = cols;
+  PHRASES.forEach(t => g.append(card(k, t)));
+  return {node:g, cols};
+}
+
+function catRow(k, name, icon, count, sel){
+  const r = el('div','cat',{borderRadius:k.btnRadius+'px', padding:(k.ctrlH-k.rowH+ (k.rowH-28))/2 +'px 10px', minHeight:k.rowH+'px', fontSize:'15px'});
+  r.style.padding = Math.max(4,(k.rowH-30)/2)+'px 10px';
+  const ic = el('div','catic',{width:(k.sidebar<220?26:32)+'px',height:(k.sidebar<220?30:36)+'px',background:'rgba(85,81,201,.10)',borderRadius:'8px',font:'13px'});
+  ic.textContent = icon;
+  const tx = el('div'); tx.textContent = name; tx.style.cssText = `font:${sel?650:550} ${k.sidebar<220?'15':'16'}px/1.25 inherit`;
+  r.append(ic, tx);
+  if(sel){ const t = el('div','tick'); t.textContent='✓'; r.append(t); }
+  else { const c = el('div','cnt'); c.textContent = count; r.append(c); }
+  return r;
+}
+
+function render(){
+  const k = TOKENS[state.t], d = DEVICES[state.o];
+  const screen = document.getElementById('screen'), device = document.getElementById('device'), app = document.getElementById('app');
+  screen.style.width = d.w+'px'; screen.style.height = d.h+'px';
+  const scale = Math.min(1, (window.innerWidth - 60) / d.w, (window.innerHeight - 190) / d.h);
+  screen.style.transform = `scale(${scale})`;
+  device.style.width = (d.w + 24)+'px'; device.style.height = (d.h + 24)+'px';
+  app.innerHTML = '';
+
+  const wide = d.w >= 960;
+  const pad = el('div','pad',{padding:(wide?k.page:k.pageCompact)+'px', gap:k.block+'px'});
+  app.append(pad);
+
+  // en-tête
+  const head = el('div','row',{gap:k.headerGap+'px'});
+  const brand = el('div','row',{gap:'10px'});
+  const bi = el('div','brand-ic',{width:k.headerIcon+'px',height:k.headerIcon+'px',borderRadius:k.btnRadius+'px',font:(k.headerIcon*0.5)+'px'}); bi.textContent='💬';
+  const bt = el('div'); bt.innerHTML = `<div class="brand-t" style="font-size:${k.title};line-height:1.15">YAMParle</div><div class="brand-s" style="font-size:${k.sub}">À votre rythme.</div>`;
+  brand.append(bi, bt);
+  const chip = (label, w) => { const c = el('div','chip'); c.textContent = label; c.style.cssText += `;padding:0 12px;min-height:${k.ctrlH}px;border-radius:${k.btnRadius}px;font:${label.length>10?'15':'15'}px/1 inherit;max-width:${w||9999}px`; return c; };
+  const actions = el('div','row',{gap:k.gridGap+'px'});
+  actions.append(chip('Rechercher'), chip('Réglages'));
+  const prof = chip('Marie'); prof.style.gap='7px';
+  head.append(brand, el('div','', {flex:'1'}), prof, actions);
+  pad.append(head);
+
+  // compositeur
+  const comp = el('div','composer panel',{padding:k.composerPad+'px', gap:k.composerGap+'px', borderRadius:k.radius+'px', boxShadow:k.shadow});
+  const chead = el('div','row'); chead.innerHTML = `<div style="font-weight:650;font-size:15px">Votre phrase</div><div style="flex:1"></div><div style="font-size:12px;color:var(--ink2)">Lecture en cours</div>`;
+  const cbody = el('div','row',{gap:'12px', alignItems:'center'});
+  const ed = el('div','editor',{flex:'1', height:k.editor+'px', font:fontFor(wide?22:20), padding:'2px 6px', border:'1px solid var(--border)', borderRadius:k.btnRadius+'px', background:'var(--surface)'});
+  ed.innerHTML = `<b>Bonjour, j’ai</b> soif et je veux sortir.`;
+  const hero = el('div','hero',{minHeight:k.heroH+'px', width: wide? '168px':'100%', borderRadius:k.btnRadius+'px', font:fontFor(17)});
+  hero.textContent = '🔊 Parler';
+  if(wide) cbody.append(ed, hero); else { cbody.append(ed); }
+  comp.append(chead, cbody);
+  if(!wide) comp.append(hero);
+  comp.append(el('div','divider'));
+  const btns = el('div','grid',{gap:k.actionGap+'px'});
+  btns.style.gridTemplateColumns = `repeat(auto-fit, minmax(${k.actionMin}px,1fr))`;
+  ['⌨︎ Clavier','⌫ Effacer','🔖 Enregistrer','⋯ Plus'].forEach(t=>{
+    const b = el('div','chip'); b.textContent=t; b.style.cssText += `;min-height:${k.ctrlH}px;border-radius:${k.btnRadius}px;background:var(--elevated);font:${fontFor(15)}`;
+    btns.append(b);
+  });
+  comp.append(btns);
+  pad.append(comp);
+
+  // catégories + grille
+  const lib = el('div',{flex:'1', minHeight:'0'});
+  lib.style.cssText += 'display:flex;flex:1;min-height:0;gap:'+(wide?k.inner:k.block)+'px';
+  if(wide){
+    const side = el('div','panel',{width:k.sidebar+'px', flex:'none', borderRadius:k.radius+'px', padding:(k.inner*0.62)+'px', gap:'6px', boxShadow:k.shadow});
+    side.style.cssText += 'display:flex;flex-direction:column;min-height:0';
+    const h = el('div','sec-h',{padding:'0 4px 2px',fontSize:'11.5px'}); h.textContent='Catégories'; side.append(h);
+    const list = el('div','scroll',{display:'flex',flexDirection:'column',gap:'6px'});
+    CATS.forEach((c,i)=> list.append(catRow(k,c[0],c[1],c[2],i===0)));
+    side.append(list);
+    const nb = el('div','chip',{minHeight:k.ctrlH+'px',borderRadius:k.btnRadius+'px',justifyContent:'center',font:'13px',color:'var(--accent)',border:'0',background:'transparent'});
+    nb.textContent = '＋ Nouvelle catégorie'; side.append(nb);
+    lib.append(side);
+  } else {
+    lib.style.flexDirection = 'column';
+  }
+  const right = el('div',{display:'flex',flexDirection:'column',gap:k.inner+'px',flex:'1',minHeight:'0'});
+  right.style.cssText = `display:flex;flex-direction:column;gap:${k.inner}px;flex:1;min-height:0`;
+  const lhead = el('div','row',{gap:'12px'});
+  lhead.innerHTML = `<div><div class="title-h" style="font-size:${k.title};line-height:1.15">Conversation</div><div class="title-s" style="font-size:${k.sub}">Touchez une carte pour composer votre phrase.</div></div><div style="flex:1"></div>`;
+  const add = el('div','chip',{minHeight:k.ctrlH+'px',borderRadius:k.btnRadius+'px',padding:'0 12px',font:fontFor(15)}); add.textContent='＋ Ajouter';
+  lhead.append(add);
+  right.append(lhead);
+  if(!wide){
+    const strip = el('div','scroll',{display:'flex',gap:k.gridGap+'px',flex:'none',paddingBottom:'2px'});
+    CATS.forEach((c,i)=>{ const n = catRow(k,c[0],c[1],c[2],i===0); n.style.minWidth='152px'; if(state.t==='before') n.style.minWidth='200px'; strip.append(n); });
+    right.append(strip);
+  }
+  const scroller = el('div','scroll',{flex:'1',minHeight:'0'});
+  const g = gridFor(k, wide ? (d.w - 2*(wide?k.page:k.pageCompact) - k.sidebar - k.inner - 2*(k.inner*0.62) - 2) : (d.w - 2*k.pageCompact));
+  scroller.append(g.node);
+  right.append(scroller);
+  lib.append(right);
+  pad.append(lib);
+
+  // fenêtre Réglages
+  if(state.s === 'settings'){
+    const dim = el('div','dim');
+    const win = el('div', 'win' + (k.win==='full' ? ' full':''));
+    if(k.win==='card'){
+      win.style.width = Math.min(k.winWidth, d.w - 48)+'px';
+      win.style.height = Math.min(700, d.h - 96)+'px';
+      win.style.borderRadius = (k.radius + 2)+'px';
+    }
+    const bar = el('div','navbar',{height:(k.navLarge?96:52)+'px', flexDirection:k.navLarge?'column':'row', justifyContent:k.navLarge?'flex-end':'center', alignItems: k.navLarge?'flex-start':'center', paddingBottom:k.navLarge?'8px':'0'});
+    bar.innerHTML = `<div class="t" style="font-size:${k.navLarge?30:17}px">${''}</div>`;
+    bar.innerHTML = '';
+    if(k.navLarge){
+      const t = el('div'); t.textContent='Réglages'; t.style.cssText='font-size:30px;font-weight:750;padding:0 14px';
+      const r = el('div','row',{width:'100%',padding:'0 14px',height:'36px'}); r.innerHTML='<div style="flex:1"></div><div class="done">Fermer</div>';
+      bar.append(t,r);
+    } else {
+      bar.innerHTML = `<div class="t">Réglages</div><div class="done">Fermer</div>`;
+    }
+    win.append(bar);
+    const body = el('div','scroll',{flex:'1',padding:(k.win==='full'?18:12)+'px', display:'flex', flexDirection:'column', gap:k.winSecGap+'px', maxWidth:k.winWidth+'px', margin:'0 auto', width:'100%'});
+    const sections = [
+      ['Votre espace',[['👤','Marie','Profil actif · Gérer les utilisateurs','>']]],
+      ['Apparence',[['🎨','Thèmes et apparence','Classique · Système','>']]],
+      ['Communication',[['〰️','Parole et son','Voix, vitesse et lecture au toucher','>'],['▦','Catégories','Organiser et renommer vos catégories','>']]],
+      ['Confort d’utilisation',[['◐','Contraste renforcé','Bordures plus visibles','sw'],['✋','Retour haptique','Si votre appareil le prend en charge','swo'],['⇕','Taille des cartes','Moins de cartes, plus d’espace','menu']]],
+      ['À propos et données',[['ℹ️','Application · YAMParle','Vos phrases restent sur cet appareil','']]]
+    ];
+    sections.forEach(([name, cells])=>{
+      const h = el('div','sec-h',{fontSize:'11.5px',padding:'0 4px'}); h.textContent = name; body.append(h);
+      const grp = el('div','grp',{gap:'1px'});
+      cells.forEach(([ic,tx,sub,kind])=>{
+        const c = el('div','cell');
+        c.style.cssText += `min-height:${k.winRowH}px;padding:${k.winRowPad}px 10px;font-size:${k.winRowText}px`;
+        const i = el('div','ic',{width:k.winIcon+'px',height:k.winIcon+'px',background:'var(--elevated)',borderRadius:'8px',font:(k.winIcon*0.55)+'px'}); i.textContent = ic;
+        const t = el('div','tx'); t.innerHTML = `<b style="font-size:${k.winRowText}">${tx}</b><span style="font-size:${k.winSub}">${sub}</span>`;
+        c.append(i,t);
+        if(kind==='sw'||kind==='swo'){ const s2 = el('div','sw'+(kind==='swo'?' off':'')); c.append(s2); }
+        else if(kind==='menu'){ const m = el('div','chev',{color:'var(--accent)',fontWeight:'600',fontSize:'14px'}); m.textContent='Standard ⌄'; c.append(m); }
+        else { const ch = el('div','chev'); ch.textContent='›'; c.append(ch); }
+        grp.append(c);
+      });
+      body.append(grp);
+    });
+    win.append(body);
+    dim.append(win); app.append(dim);
+  }
+
+  measure(k, d, wide, g);
+}
+
+function measure(k, d, wide, g){
+  const scroller = g.node.parentElement;
+  const gridTop = g.node.getBoundingClientRect(), scr = scroller.getBoundingClientRect();
+  const sc = Math.min(1, (window.innerWidth-60)/d.w, (window.innerHeight-190)/d.h);
+  const visibleRows = new Set();
+  [...g.node.children].forEach(ch=>{
+    const r = ch.getBoundingClientRect();
+    if(r.top >= scr.top - 1 && r.bottom <= scr.bottom + 1) visibleRows.add(Math.round(r.top / sc));
+  });
+  const composer = document.querySelectorAll('.composer')[0].getBoundingClientRect();
+  const head = document.querySelectorAll('.pad > .row')[0].getBoundingClientRect();
+  const blockH = h => Math.round(h/sc);
+  const cardsVisible = g.cols * Math.max(1, visibleRows.size);
+  const data = [
+    ['Colonnes de cartes', g.cols, wide?'grille large':'grille portrait'],
+    ['Cartes sans défilement', cardsVisible, g.cols+' × '+Math.max(1,visibleRows.size)+' lignes'],
+    ['Hauteur « Votre phrase »', blockH(composer.height), 'compositeur complet'],
+    ['Hauteur en-tête', blockH(head.height), 'identité + profil + actions'],
+    ['Zone utile', (wide?d.w-2*k.page:d.w-2*k.pageCompact)+' × '+(d.h-2*(wide?k.page:k.pageCompact)), 'marge '+(wide?k.page:k.pageCompact)+' pt'],
+    ['Fenêtre Réglages', k.win==='full'?'plein écran':Math.min(k.winWidth,d.w-48)+' pt de large', k.navLarge?'titre empilé, 60 pt de barre':'titre inline, 52 pt de barre']
+  ];
+  document.getElementById('metrics').innerHTML = data.map(([t,v,n])=>`<div class="metric"><span>${t}</span><b>${v}</b><em>${n}</em></div>`).join('');
+  document.title = `YAMParle · ${k.label} · iPad Pro 11″ ${DEVICES[state.o].label}`;
+}
+
+document.querySelectorAll('.seg').forEach(seg=>{
+  seg.addEventListener('click', e=>{
+    const b = e.target.closest('button'); if(!b) return;
+    [...seg.querySelectorAll('button')].forEach(x=>x.setAttribute('aria-pressed', String(x===b)));
+    const key = seg.id==='segState'?'t':seg.id==='segOrient'?'o':'s';
+    state[key] = b.dataset.v; render();
+  });
+});
+window.addEventListener('resize', render);
+render();
+</script>
+</body>
+</html>
