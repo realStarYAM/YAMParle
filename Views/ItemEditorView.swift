@@ -8,9 +8,15 @@ import SwiftData
 import PhotosUI
 import AVFoundation
 
+/// Formulaire d’une phrase, en trois niveaux : Contenu, Apparence, Voix.
+///
+/// Le texte et la catégorie suffisent à créer une carte utilisable ; la prononciation
+/// alternative et le moteur individuel sont rangés dans une section repliable, pour ne pas
+/// faire concurrence au trajet du quotidien. L’aperçu dessine la vraie carte de l’accueil.
 struct ItemEditorView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
+    @Bindable private var themeManager = ThemeManager.shared
 
     let existingItem: AACItem?
     let defaultCategoryId: String
@@ -27,30 +33,53 @@ struct ItemEditorView: View {
     @State private var selectedPhotoItem: PhotosPickerItem? = nil
     @State private var customImageData: Data? = nil
 
-    // Audio source selection: "apple", "elevenlabs", "recording"
+    /// Source vocale de cette carte : "apple", "elevenlabs", "recording".
     @State private var audioSourceType: String = "apple"
     @State private var localAudioFileName: String? = nil
 
-    @Bindable var audioRecorder = AudioRecorderService.shared
-    @Bindable var elevenLabs = ElevenLabsService.shared
+    @State private var showAdvancedVoice = false
+    @State private var saveError: String?
 
-    private let availableSymbols = [
-        "bubble.left.fill", "bubble.left.and.bubble.right.fill", "hand.wave.fill",
-        "heart.fill", "sun.max.fill", "moon.stars.fill", "bed.double.fill",
-        "questionmark.bubble.fill", "hand.thumbsup.fill", "hand.thumbsdown.fill",
-        "face.smiling.fill", "exclamationmark.bubble.fill", "clock.fill",
-        "sparkles", "arrow.counterclockwise.circle.fill", "lifepreserver.fill",
-        "figure.walk.departure", "checkmark.circle.fill", "xmark.circle.fill",
-        "person.fill", "person.2.fill", "house.fill", "building.2.fill",
-        "fork.knife", "cup.and.saucer.fill", "drop.fill", "cube.fill",
-        "tshirt.fill", "figure.walk", "brain.head.profile", "cross.fill",
-        "pills.fill", "car.fill", "tree.fill", "cart.fill", "star.fill"
-    ]
+    @Bindable private var audioRecorder = AudioRecorderService.shared
+    @Bindable private var elevenLabs = ElevenLabsService.shared
 
-    private let paletteColors = [
-        "#1E73F2", "#30D158", "#FF9F0A", "#40CBE0",
-        "#FF375F", "#BF5AF2", "#5E5CE6", "#FFD60A",
-        "#AC8E68", "#64D2FF", "#FF453A", "#8E8E93"
+    private let iconChoices: [YAMIconChoice] = [
+        YAMIconChoice(symbol: "bubble.left.fill", title: "Phrase"),
+        YAMIconChoice(symbol: "bubble.left.and.bubble.right.fill", title: "Échange"),
+        YAMIconChoice(symbol: "hand.wave.fill", title: "Salutation"),
+        YAMIconChoice(symbol: "heart.fill", title: "Affection"),
+        YAMIconChoice(symbol: "sun.max.fill", title: "Jour"),
+        YAMIconChoice(symbol: "moon.stars.fill", title: "Nuit"),
+        YAMIconChoice(symbol: "bed.double.fill", title: "Coucher"),
+        YAMIconChoice(symbol: "questionmark.bubble.fill", title: "Question"),
+        YAMIconChoice(symbol: "hand.thumbsup.fill", title: "Accord"),
+        YAMIconChoice(symbol: "hand.thumbsdown.fill", title: "Refus"),
+        YAMIconChoice(symbol: "face.smiling.fill", title: "Sourire"),
+        YAMIconChoice(symbol: "exclamationmark.bubble.fill", title: "Attention"),
+        YAMIconChoice(symbol: "clock.fill", title: "Attente"),
+        YAMIconChoice(symbol: "sparkles", title: "Nouveauté"),
+        YAMIconChoice(symbol: "arrow.counterclockwise.circle.fill", title: "Répéter"),
+        YAMIconChoice(symbol: "lifepreserver.fill", title: "Aide"),
+        YAMIconChoice(symbol: "figure.walk.departure", title: "Départ"),
+        YAMIconChoice(symbol: "checkmark.circle.fill", title: "Oui"),
+        YAMIconChoice(symbol: "xmark.circle.fill", title: "Non"),
+        YAMIconChoice(symbol: "person.fill", title: "Personne"),
+        YAMIconChoice(symbol: "person.2.fill", title: "Deux personnes"),
+        YAMIconChoice(symbol: "house.fill", title: "Maison"),
+        YAMIconChoice(symbol: "building.2.fill", title: "Bâtiment"),
+        YAMIconChoice(symbol: "fork.knife", title: "Repas"),
+        YAMIconChoice(symbol: "cup.and.saucer.fill", title: "Boisson"),
+        YAMIconChoice(symbol: "drop.fill", title: "Eau"),
+        YAMIconChoice(symbol: "cube.fill", title: "Objet"),
+        YAMIconChoice(symbol: "tshirt.fill", title: "Vêtement"),
+        YAMIconChoice(symbol: "figure.walk", title: "Marche"),
+        YAMIconChoice(symbol: "brain.head.profile", title: "Tête"),
+        YAMIconChoice(symbol: "cross.fill", title: "Santé"),
+        YAMIconChoice(symbol: "pills.fill", title: "Médicament"),
+        YAMIconChoice(symbol: "car.fill", title: "Voiture"),
+        YAMIconChoice(symbol: "tree.fill", title: "Extérieur"),
+        YAMIconChoice(symbol: "cart.fill", title: "Courses"),
+        YAMIconChoice(symbol: "star.fill", title: "Préférence"),
     ]
 
     init(
@@ -65,356 +94,464 @@ struct ItemEditorView: View {
         self.categories = categories
     }
 
+    private var theme: AppTheme { themeManager.currentTheme }
+    private var trimmedText: String { text.trimmingCharacters(in: .whitespacesAndNewlines) }
+    private var trimmedLabel: String { label.trimmingCharacters(in: .whitespacesAndNewlines) }
+    private var trimmedSpeech: String { speechText.trimmingCharacters(in: .whitespacesAndNewlines) }
+    private var canSave: Bool { !trimmedText.isEmpty }
+
     var body: some View {
         NavigationStack {
             Form {
-                // 1. Aperçu
-                Section("Aperçu du bouton") {
-                    HStack {
-                        Spacer()
-                        VStack(spacing: 8) {
-                            Capsule()
-                                .fill(Color(hex: selectedColorHex))
-                                .frame(width: 30, height: 4)
-                                .padding(.top, 6)
-
-                            ZStack(alignment: .topTrailing) {
-                                ZStack {
-                                    Circle()
-                                        .fill(Color(hex: selectedColorHex).opacity(0.15))
-                                        .frame(width: 46, height: 46)
-
-                                    if let data = customImageData, let uiImage = UIImage(data: data) {
-                                        Image(uiImage: uiImage)
-                                            .resizable()
-                                            .scaledToFill()
-                                            .frame(width: 42, height: 42)
-                                            .clipShape(Circle())
-                                    } else {
-                                        Image(systemName: selectedIcon)
-                                            .font(.system(size: 22, weight: .bold))
-                                            .foregroundColor(Color(hex: selectedColorHex))
-                                    }
-                                }
-
-                                // Custom audio badge indicator
-                                if audioSourceType != "apple" {
-                                    Image(systemName: audioSourceType == "recording" ? "mic.fill" : "waveform.badge.magnifyingglass")
-                                        .font(.system(size: 11, weight: .bold))
-                                        .foregroundColor(.white)
-                                        .padding(4)
-                                        .background(audioSourceType == "recording" ? Color.red : Color.purple)
-                                        .clipShape(Circle())
-                                        .offset(x: 4, y: -4)
-                                }
-                            }
-
-                            Text(label.isEmpty ? (text.isEmpty ? "Texte" : text) : label)
-                                .font(.system(.subheadline, design: .rounded, weight: .bold))
-                                .foregroundStyle(.primary)
-                                .lineLimit(2)
-                                .multilineTextAlignment(.center)
-                                .padding(.bottom, 6)
-                        }
-                        .frame(width: 104, height: 104)
-                        .background(Color(UIColor.secondarySystemGroupedBackground))
-                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                .strokeBorder(Color(hex: selectedColorHex).opacity(0.35), lineWidth: 1.5)
-                        )
-                        .shadow(color: Color.black.opacity(0.05), radius: 4, y: 2)
-                        Spacer()
-                    }
-                    .listRowBackground(Color.clear)
-                }
-
-                // 2. Texte de la phrase et étiquette
-                Section("Texte & Étiquette") {
-                    TextField("Texte complet de la phrase", text: $text, axis: .vertical)
-                        .font(.body)
-                        .lineLimit(2...4)
-
-                    TextField("Étiquette courte sur le bouton (optionnel)", text: $label)
-                        .font(.subheadline)
-                }
-
-                // 3. Source vocale (Apple, ElevenLabs, Enregistrement personnel)
-                Section("Source vocale de ce bouton") {
-                    Picker("Moteur audio", selection: $audioSourceType) {
-                        Text("Voix Apple").tag("apple")
-                        Text("ElevenLabs IA").tag("elevenlabs")
-                        Text("Enregistrement personnel").tag("recording")
-                    }
-                    .pickerStyle(.segmented)
-
-                    if audioSourceType == "apple" {
-                        TextField("Prononciation alternative (optionnel)", text: $speechText)
-                            .font(.subheadline)
-
-                        Button {
-                            let toSpeak = speechText.isEmpty ? text : speechText
-                            SpeechService.shared.speak(text: toSpeak.isEmpty ? "Test de voix YAMParle" : toSpeak)
-                        } label: {
-                            HStack {
-                                Image(systemName: "speaker.wave.2.fill")
-                                Text("Tester la voix Apple")
-                            }
-                            .foregroundColor(Color.yamAccent)
-                        }
-                    } else if audioSourceType == "elevenlabs" {
-                        VStack(alignment: .leading, spacing: 8) {
-                            if let cached = ElevenLabsService.shared.getCachedFile(for: text) {
-                                HStack {
-                                    Image(systemName: "checkmark.circle.fill")
-                                        .foregroundColor(.green)
-                                    Text("Fichier audio téléchargé (\(cached.fileSize))")
-                                        .font(.caption)
-                                    Spacer()
-                                    Button("Écouter") {
-                                        ElevenLabsService.shared.playCachedItem(cached)
-                                    }
-                                    .buttonStyle(.bordered)
-                                }
-                            } else {
-                                Button {
-                                    ElevenLabsService.shared.generateAndCache(text: text) { _ in }
-                                } label: {
-                                    HStack {
-                                        if ElevenLabsService.shared.isGenerating {
-                                            ProgressView()
-                                        } else {
-                                            Image(systemName: "arrow.down.circle.fill")
-                                        }
-                                        Text(ElevenLabsService.shared.isGenerating ? "Téléchargement..." : "Générer et télécharger l'audio")
-                                    }
-                                }
-                                .disabled(!ElevenLabsService.shared.hasApiKey || text.isEmpty || ElevenLabsService.shared.isGenerating)
-                            }
-                        }
-                        .padding(.vertical, 4)
-                    } else if audioSourceType == "recording" {
-                        VStack(alignment: .leading, spacing: 8) {
-                            if audioRecorder.isRecording {
-                                HStack {
-                                    Circle().fill(Color.red).frame(width: 10, height: 10)
-                                    Text("Enregistrement (\(String(format: "%.1fs", audioRecorder.recordingDuration)))")
-                                        .font(.subheadline.weight(.bold))
-                                        .foregroundColor(.red)
-                                    Spacer()
-                                    Button("Terminer") {
-                                        audioRecorder.stopRecording()
-                                    }
-                                    .buttonStyle(.borderedProminent)
-                                    .tint(.red)
-                                }
-                            } else {
-                                HStack {
-                                    Button {
-                                        audioRecorder.requestMicrophonePermission { granted in
-                                            if granted {
-                                                let fileName = "rec_btn_\(UUID().uuidString.prefix(8)).m4a"
-                                                localAudioFileName = audioRecorder.startRecording(fileName: fileName)
-                                            }
-                                        }
-                                    } label: {
-                                        HStack {
-                                            Image(systemName: "mic.circle.fill")
-                                            Text(localAudioFileName != nil ? "Réenregistrer" : "Enregistrer ma voix")
-                                        }
-                                        .foregroundColor(.red)
-                                    }
-
-                                    Spacer()
-
-                                    if let fileName = localAudioFileName, audioRecorder.fileExists(fileName: fileName) {
-                                        Button {
-                                            audioRecorder.playAudio(fileName: fileName)
-                                        } label: {
-                                            Image(systemName: "play.circle.fill")
-                                                .font(.title2)
-                                                .foregroundColor(Color.yamAccent)
-                                        }
-
-                                        Button(role: .destructive) {
-                                            audioRecorder.deleteAudio(fileName: fileName)
-                                            localAudioFileName = nil
-                                        } label: {
-                                            Image(systemName: "trash")
-                                                .foregroundColor(.secondary)
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        .padding(.vertical, 4)
-                    }
-                }
-
-                // 4. Catégorie & Position dans la grille
-                Section("Organisation") {
-                    Picker("Catégorie", selection: $selectedCategoryId) {
-                        ForEach(categories) { cat in
-                            Label(cat.name, systemImage: cat.iconName)
-                                .tag(cat.id)
-                        }
-                    }
-
-                    Stepper("Position dans la grille : \(sortOrder)", value: $sortOrder, in: 0...500)
-                }
-
-                // 5. Couleur du bouton
-                Section("Couleur du bouton") {
-                    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 6), spacing: 10) {
-                        ForEach(paletteColors, id: \.self) { hex in
-                            Button {
-                                selectedColorHex = hex
-                            } label: {
-                                Circle()
-                                    .fill(Color(hex: hex))
-                                    .frame(height: 38)
-                                    .overlay(
-                                        Circle()
-                                            .stroke(Color.white, lineWidth: selectedColorHex == hex ? 3 : 0)
-                                    )
-                                    .shadow(color: Color(hex: hex).opacity(selectedColorHex == hex ? 0.6 : 0.2), radius: 4)
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                    .padding(.vertical, 6)
-                }
-
-                // 6. Image / Photo facultative
-                Section("Image ou Photo") {
-                    PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
-                        HStack {
-                            Label("Choisir une photo de l'appareil", systemImage: "photo.on.rectangle.angled")
-                            Spacer()
-                            if customImageData != nil {
-                                Text("Photo sélectionnée")
-                                    .font(.subheadline)
-                                    .foregroundColor(.secondary)
-                            }
-                        }
-                    }
-                    .onChange(of: selectedPhotoItem) { _, newItem in
-                        Task {
-                            if let data = try? await newItem?.loadTransferable(type: Data.self) {
-                                customImageData = data
-                            }
-                        }
-                    }
-
-                    if customImageData != nil {
-                        Button(role: .destructive) {
-                            customImageData = nil
-                            selectedPhotoItem = nil
-                        } label: {
-                            Label("Supprimer la photo (utiliser l'icône)", systemImage: "trash")
-                        }
-                    }
-                }
-
-                // 7. SF Symbols Selection (si aucune photo)
-                if customImageData == nil {
-                    Section("Choisir une icône") {
-                        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 6), spacing: 12) {
-                            ForEach(availableSymbols, id: \.self) { sym in
-                                Button {
-                                    selectedIcon = sym
-                                } label: {
-                                    Image(systemName: sym)
-                                        .font(.title3)
-                                        .foregroundColor(selectedIcon == sym ? .white : .primary)
-                                        .frame(width: 44, height: 44)
-                                        .background(selectedIcon == sym ? Color(hex: selectedColorHex) : Color(UIColor.tertiarySystemFill))
-                                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                                }
-                                .buttonStyle(.plain)
-                            }
-                        }
-                        .padding(.vertical, 6)
-                    }
-                }
+                contentSection
+                appearanceSection
+                voiceSection
+                errorSection
             }
+            .listSectionSpacing(.compact)
+            .contentMargins(.vertical, YAMSpacing.small, for: .scrollContent)
             .navigationTitle(existingItem == nil ? "Nouvelle phrase" : "Modifier la phrase")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Annuler") {
-                        dismiss()
+                ToolbarItem(placement: .cancellationAction) { Button("Annuler") { dismiss() } }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Enregistrer", action: saveItem)
+                        .disabled(!canSave)
+                        .fontWeight(.bold)
+                }
+            }
+            .onAppear(perform: loadValues)
+        }
+        .tint(theme.accentColor)
+        .preferredColorScheme(themeManager.appearance.colorScheme)
+    }
+
+    // MARK: - 1. Contenu
+
+    private var contentSection: some View {
+        Section {
+            TextField("Texte complet de la phrase", text: $text, axis: .vertical)
+                .font(.body)
+                .lineLimit(2...5)
+                .accessibilityLabel("Texte de la phrase")
+
+            TextField("Étiquette courte sur le bouton (facultatif)", text: $label)
+                .font(.subheadline)
+                .accessibilityLabel("Étiquette affichée sur la carte")
+
+            Picker("Catégorie", selection: $selectedCategoryId) {
+                ForEach(categories) { category in
+                    Label(category.name, systemImage: category.iconName)
+                        .tag(category.id)
+                }
+            }
+            .pickerStyle(.menu)
+
+            Stepper("Position dans la grille : \(sortOrder)", value: $sortOrder, in: 0...500)
+                .font(.subheadline)
+        } header: {
+            Text("Contenu")
+        } footer: {
+            Text("La carte ajoute toujours le texte complet à votre phrase. L’étiquette ne sert qu’à la reconnaître dans la grille, et l’ordre choisi reste stable d’une ouverture à l’autre.")
+        }
+    }
+
+    // MARK: - 2. Apparence
+
+    private var appearanceSection: some View {
+        Section {
+            cardPreview
+                .listRowBackground(Color.clear)
+
+            photoRow
+
+            // L’icône ne sert plus que si aucune photo n’est choisie : inutile d’afficher deux sources concurrentes.
+            if customImageData == nil {
+                YAMIconChoiceGrid(selection: $selectedIcon, choices: iconChoices)
+            }
+
+            YAMSwatchGrid(selection: $selectedColorHex)
+        } header: {
+            Text("Apparence")
+        } footer: {
+            Text("L’aperçu est la carte elle-même : même texte, même dessin que sur l’écran principal. Une phrase longue agrandit la carte, elle n’est jamais réduite pour rentrer.")
+        }
+    }
+
+    /// Aperçu fondé sur `YAMCardFace`, le dessin partagé par l’accueil et la recherche.
+    private var cardPreview: some View {
+        VStack(alignment: .center, spacing: YAMSpacing.small) {
+            HStack {
+                Spacer(minLength: 0)
+                YAMCardFace(
+                    label: previewLabel,
+                    symbolName: selectedIcon,
+                    imageData: customImageData,
+                    tint: Color(hex: selectedColorHex),
+                    audioBadgeTitle: previewBadgeTitle
+                )
+                .frame(width: YAMLayout.gridCardMinWidth)
+                .yamSurface(theme)
+                Spacer(minLength: 0)
+            }
+
+            if audioSourceType == "apple" && !trimmedSpeech.isEmpty {
+                Text("Le texte prononcé diffère de l’affiche : « \(trimmedSpeech) ».")
+                    .font(.footnote)
+                    .foregroundStyle(theme.secondaryTextColor)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Aperçu de la carte : \(previewLabel)")
+        .accessibilityHint(previewBadgeTitle == nil ? "Voix du profil." : "Voix personnalisée sur cette carte.")
+    }
+
+    private var previewLabel: String {
+        if !trimmedLabel.isEmpty { return trimmedLabel }
+        if !trimmedText.isEmpty { return trimmedText }
+        return "Votre phrase"
+    }
+
+    /// Le badge suit exactement ce que la carte de l’accueil afficherait.
+    private var previewBadgeTitle: String? {
+        switch audioSourceType {
+        case "recording": return "Voix enregistrée"
+        case "elevenlabs": return "Voix IA"
+        default: return nil
+        }
+    }
+
+    private var photoRow: some View {
+        VStack(alignment: .leading, spacing: YAMSpacing.small) {
+            PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
+                HStack(spacing: YAMSpacing.medium) {
+                    Label("Photo de l’appareil", systemImage: "photo.on.rectangle.angled")
+                        .font(.callout)
+                        .foregroundStyle(theme.primaryTextColor)
+                    Spacer(minLength: 0)
+                    Text(customImageData == nil ? "Aucune photo" : "Photo choisie")
+                        .font(.footnote)
+                        .foregroundStyle(theme.secondaryTextColor)
+                }
+                .frame(minHeight: YAMSpacing.minimumTarget)
+                .contentShape(Rectangle())
+            }
+            .onChange(of: selectedPhotoItem) { _, newItem in
+                Task {
+                    // Charger en deux temps : `if let … = try? await …` est rejeté par
+                    // l’analyseur de grammaire des contrôles statiques. Un échec de
+                    // transfert laisse la photo déjà choisie en place.
+                    let transferred = try? await newItem?.loadTransferable(type: Data.self)
+                    if let data = transferred {
+                        customImageData = data
                     }
+                }
+            }
+
+            if customImageData != nil {
+                Button(role: .destructive, action: removePhoto) {
+                    Label("Retirer la photo et revenir à l’icône", systemImage: "trash")
+                        .font(.footnote.weight(.medium))
+                        .frame(minHeight: YAMLayout.rowHeight)
+                }
+            }
+        }
+    }
+
+    // MARK: - 3. Voix
+
+    private var voiceSection: some View {
+        Section {
+            LabeledContent("Voix de cette carte", value: voiceSummary)
+
+            Button(action: testVoice) {
+                HStack(spacing: YAMSpacing.medium) {
+                    Image(systemName: "speaker.wave.2.fill")
+                        .font(.subheadline)
+                        .foregroundStyle(theme.accentColor)
+                    Text("Écouter ce que dira cette carte")
+                        .font(.callout.weight(.semibold))
+                        .foregroundStyle(theme.primaryTextColor)
+                    Spacer(minLength: 0)
+                }
+                .frame(minHeight: YAMLayout.rowHeight)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+
+            YAMAdvancedSection(
+                title: "Voix personnalisée pour cette carte",
+                summary: advancedSummary,
+                isExpanded: $showAdvancedVoice
+            ) {
+                Picker("Moteur de cette carte", selection: $audioSourceType) {
+                    Text("Voix du profil").tag("apple")
+                    Text("Enregistrement personnel").tag("recording")
+                    Text("Voix IA ElevenLabs").tag("elevenlabs")
+                }
+                .pickerStyle(.menu)
+
+                if audioSourceType == "apple" {
+                    TextField("Prononciation alternative (facultatif)", text: $speechText)
+                        .font(.subheadline)
+                        .accessibilityLabel("Texte prononcé à la place du texte affiché")
                 }
 
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Enregistrer") {
-                        saveItem()
-                        dismiss()
-                    }
-                    .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                    .fontWeight(.bold)
+                if audioSourceType == "elevenlabs" {
+                    elevenLabsRow
+                }
+
+                if audioSourceType == "recording" {
+                    recordingRow
                 }
             }
-            .onAppear {
-                if let item = existingItem {
-                    text = item.text
-                    label = item.label ?? ""
-                    speechText = item.speechText ?? ""
-                    selectedCategoryId = item.categoryId
-                    selectedIcon = item.iconName
-                    selectedColorHex = item.customColorHex ?? categories.first(where: { $0.id == item.categoryId })?.colorHex ?? "#1E73F2"
-                    customImageData = item.customImageData
-                    sortOrder = item.sortOrder
-                    audioSourceType = item.audioSourceType
-                    localAudioFileName = item.localAudioFileName
-                } else {
-                    if let prefill = initialText, !prefill.isEmpty {
-                        text = prefill
+        } header: {
+            Text("Voix")
+        } footer: {
+            Text("Sans réglage ici, la carte parle avec la voix principale du profil. Aucun compte en ligne n’est nécessaire pour communiquer.")
+        }
+    }
+
+    private var voiceSummary: String {
+        switch audioSourceType {
+        case "recording": return "Enregistrement personnel"
+        case "elevenlabs": return "Voix IA ElevenLabs"
+        default: return trimmedSpeech.isEmpty ? "Voix du profil" : "Prononciation alternative"
+        }
+    }
+
+    /// Une section repliée ne doit pas masquer un réglage déjà actif.
+    private var advancedSummary: String {
+        let usesEngine = audioSourceType != "apple"
+        let usesSpeechText = !trimmedSpeech.isEmpty
+        guard usesEngine || usesSpeechText else { return "Aucun réglage avancé sur cette carte." }
+        var parts: [String] = []
+        if usesSpeechText { parts.append("texte prononcé différent") }
+        if usesEngine { parts.append("moteur individuel") }
+        return "Actif : " + parts.joined(separator: " et ") + "."
+    }
+
+    private var elevenLabsRow: some View {
+        VStack(alignment: .leading, spacing: YAMSpacing.small) {
+            if let cached = elevenLabs.getCachedFile(for: trimmedText) {
+                HStack(spacing: YAMSpacing.medium) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.subheadline)
+                        .foregroundStyle(YAMTone.positive)
+                        .accessibilityHidden(true)
+                    Text("Audio déjà téléchargé (\(cached.fileSize))")
+                        .font(.footnote)
+                        .foregroundStyle(theme.secondaryTextColor)
+                    Spacer(minLength: 0)
+                    Button("Écouter") { elevenLabs.playCachedItem(cached) }
+                        .font(.footnote.weight(.semibold))
+                        .buttonStyle(.bordered)
+                }
+            } else {
+                Button(action: generatePreview) {
+                    HStack(spacing: YAMSpacing.medium) {
+                        if elevenLabs.isGenerating {
+                            ProgressView()
+                                .controlSize(.small)
+                        } else {
+                            Image(systemName: "arrow.down.circle.fill")
+                                .font(.subheadline)
+                        }
+                        Text(elevenLabs.isGenerating ? "Téléchargement…" : "Générer et télécharger cet audio")
+                            .font(.callout.weight(.medium))
+                            .multilineTextAlignment(.leading)
                     }
-                    selectedCategoryId = defaultCategoryId.isEmpty ? (categories.first?.id ?? "cat_conversation") : defaultCategoryId
-                    selectedColorHex = categories.first(where: { $0.id == selectedCategoryId })?.colorHex ?? "#1E73F2"
+                    .frame(maxWidth: .infinity, minHeight: YAMLayout.rowHeight, alignment: .leading)
+                }
+                .buttonStyle(.bordered)
+                .disabled(!elevenLabs.hasApiKey || !canSave || elevenLabs.isGenerating)
+
+                if !elevenLabs.hasApiKey {
+                    Text("Aucune clé ElevenLabs n’est enregistrée dans les réglages. Les voix Apple restent disponibles sans compte.")
+                        .font(.footnote)
+                        .foregroundStyle(theme.secondaryTextColor)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
+        }
+        .padding(.vertical, YAMSpacing.small)
+    }
+
+    private var recordingRow: some View {
+        VStack(alignment: .leading, spacing: YAMSpacing.small) {
+            if audioRecorder.isRecording {
+                HStack(spacing: YAMSpacing.medium) {
+                    Circle()
+                        .fill(YAMTone.destructive)
+                        .frame(width: YAMLayout.recordingDotSize, height: YAMLayout.recordingDotSize)
+                        .accessibilityHidden(true)
+                    Text(String(format: "Enregistrement en cours (%.1f s)", audioRecorder.recordingDuration))
+                        .font(.callout.weight(.semibold))
+                        .foregroundStyle(theme.primaryTextColor)
+                    Spacer(minLength: 0)
+                    Button("Terminer") { audioRecorder.stopRecording() }
+                        .font(.footnote.weight(.semibold))
+                        .buttonStyle(.borderedProminent)
+                        .tint(YAMTone.destructive)
+                }
+            } else {
+                HStack(spacing: YAMSpacing.medium) {
+                    Button(action: startRecording) {
+                        Label(localAudioFileName == nil ? "Enregistrer ma voix" : "Réenregistrer", systemImage: "mic.circle.fill")
+                            .font(.callout.weight(.semibold))
+                            .foregroundStyle(theme.accentColor)
+                            .frame(minHeight: YAMLayout.rowHeight)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+
+                    Spacer(minLength: 0)
+
+                    if let fileName = localAudioFileName, audioRecorder.fileExists(fileName: fileName) {
+                        Button {
+                            audioRecorder.playAudio(fileName: fileName)
+                        } label: {
+                            Image(systemName: "play.circle.fill")
+                                .font(.title2)
+                                .foregroundStyle(theme.accentColor)
+                        }
+                        .accessibilityLabel("Écouter l’enregistrement")
+
+                        Button(role: .destructive) {
+                            audioRecorder.deleteAudio(fileName: fileName)
+                            localAudioFileName = nil
+                        } label: {
+                            Image(systemName: "trash")
+                                .font(.title3)
+                                .foregroundStyle(YAMTone.destructive)
+                        }
+                        .accessibilityLabel("Supprimer l’enregistrement")
+                    }
+                }
+            }
+
+            Text("Le micro est demandé pour cet enregistrement seulement ; l’audio reste sur l’appareil.")
+                .font(.footnote)
+                .foregroundStyle(theme.secondaryTextColor)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(.vertical, YAMSpacing.small)
+    }
+
+    // MARK: - Erreur de sauvegarde
+
+    @ViewBuilder
+    private var errorSection: some View {
+        if let saveError {
+            Section {
+                Label(saveError, systemImage: "exclamationmark.triangle")
+                    .font(.footnote)
+                    .foregroundStyle(theme.primaryTextColor)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    // MARK: - Actions
+
+    private func loadValues() {
+        if let item = existingItem {
+            text = item.text
+            label = item.label ?? ""
+            speechText = item.speechText ?? ""
+            selectedCategoryId = item.categoryId
+            selectedIcon = item.iconName
+            selectedColorHex = item.customColorHex
+                ?? categories.first(where: { $0.id == item.categoryId })?.colorHex
+                ?? "#1E73F2"
+            customImageData = item.customImageData
+            sortOrder = item.sortOrder
+            audioSourceType = item.audioSourceType
+            localAudioFileName = item.localAudioFileName
+            // Un réglage avancé déjà présent ne doit pas être caché sans signe visible.
+            showAdvancedVoice = item.audioSourceType != "apple" || !(item.speechText?.isEmpty ?? true)
+        } else {
+            text = initialText ?? ""
+            selectedCategoryId = defaultCategoryId.isEmpty ? (categories.first?.id ?? "") : defaultCategoryId
+            selectedColorHex = categories.first(where: { $0.id == selectedCategoryId })?.colorHex ?? "#1E73F2"
+            showAdvancedVoice = false
+        }
+    }
+
+    private func removePhoto() {
+        customImageData = nil
+        selectedPhotoItem = nil
+    }
+
+    private func testVoice() {
+        let spoken = trimmedSpeech.isEmpty ? trimmedText : trimmedSpeech
+        SpeechService.shared.speak(text: spoken.isEmpty ? "Test de voix YAMParle" : spoken)
+    }
+
+    private func generatePreview() {
+        elevenLabs.generateAndCache(text: trimmedText) { _ in }
+    }
+
+    private func startRecording() {
+        audioRecorder.requestMicrophonePermission { granted in
+            guard granted else { return }
+            let fileName = "rec_btn_\(UUID().uuidString.prefix(8)).m4a"
+            localAudioFileName = audioRecorder.startRecording(fileName: fileName)
         }
     }
 
     private func saveItem() {
-        let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        let trimmedLabel = label.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : label.trimmingCharacters(in: .whitespacesAndNewlines)
-        let trimmedSpeech = speechText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : speechText.trimmingCharacters(in: .whitespacesAndNewlines)
-        let activeProfileId = ProfileManager.shared.activeProfileId
+        guard canSave else { return }
+        let isNew = existingItem == nil
+        let item = existingItem ?? AACItem(
+            text: trimmedText,
+            categoryId: selectedCategoryId,
+            userProfileId: ProfileManager.shared.activeProfileId,
+            audioSourceType: audioSourceType
+        )
+        let previous = (
+            item.text, item.label, item.speechText, item.categoryId, item.iconName,
+            item.customColorHex, item.customImageData, item.sortOrder,
+            item.audioSourceType, item.localAudioFileName
+        )
 
-        if let item = existingItem {
-            item.text = trimmedText
-            item.label = trimmedLabel
-            item.speechText = trimmedSpeech
-            item.categoryId = selectedCategoryId
-            item.iconName = selectedIcon
-            item.customColorHex = selectedColorHex
-            item.customImageData = customImageData
-            item.sortOrder = sortOrder
-            item.audioSourceType = audioSourceType
-            item.localAudioFileName = localAudioFileName
-        } else {
-            let newItem = AACItem(
-                text: trimmedText,
-                label: trimmedLabel,
-                speechText: trimmedSpeech,
-                iconName: selectedIcon,
-                customImageData: customImageData,
-                categoryId: selectedCategoryId,
-                customColorHex: selectedColorHex,
-                sortOrder: sortOrder,
-                isFavorite: false,
-                isCustom: true,
-                userProfileId: activeProfileId,
-                audioSourceType: audioSourceType,
-                localAudioFileName: localAudioFileName
-            )
-            modelContext.insert(newItem)
+        item.text = trimmedText
+        item.label = trimmedLabel.isEmpty ? nil : trimmedLabel
+        item.speechText = trimmedSpeech.isEmpty ? nil : trimmedSpeech
+        item.categoryId = selectedCategoryId
+        item.iconName = selectedIcon
+        item.customColorHex = selectedColorHex
+        item.customImageData = customImageData
+        item.sortOrder = sortOrder
+        item.audioSourceType = audioSourceType
+        item.localAudioFileName = localAudioFileName
+
+        if isNew { modelContext.insert(item) }
+
+        do {
+            try modelContext.save()
+            dismiss()
+        } catch {
+            // Un enregistrement raté se dit ; il ne se fait pas en silence.
+            if isNew {
+                modelContext.delete(item)
+            } else {
+                (
+                    item.text, item.label, item.speechText, item.categoryId, item.iconName,
+                    item.customColorHex, item.customImageData, item.sortOrder,
+                    item.audioSourceType, item.localAudioFileName
+                ) = previous
+            }
+            saveError = "La phrase n’a pas pu être enregistrée sur cet appareil. Réessayez."
         }
-
-        try? modelContext.save()
     }
+}
+
+#Preview("Nouvelle phrase") {
+    NavigationStack {
+        ItemEditorView(existingItem: nil, defaultCategoryId: "", categories: [])
+    }
+    .modelContainer(for: [AACCategory.self, AACItem.self, FavoritePhrase.self, UserProfile.self], inMemory: true)
 }

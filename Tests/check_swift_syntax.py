@@ -2,8 +2,9 @@
 
 Requires tree-sitter==0.26.0 and tree-sitter-swift==0.7.3.
 Not xcodebuild: types, frameworks and macros are NOT checked.
-The parser rejects some existing Swift constructs in ItemEditorView,
-UserProfilesView and ElevenLabsService; those files are outside this check.
+The parser rejects `if let x = try? await …`, so photo loading is written in two
+steps in the forms; ElevenLabsService still uses a construct the parser rejects
+and stays outside this check.
 """
 from pathlib import Path
 import sys
@@ -19,6 +20,8 @@ files = [root / path for path in (
     'Services/DataSeedService.swift', 'Views/MainAACView.swift',
     'Views/SettingsView.swift', 'Views/ThemeSelectionView.swift',
     'Views/SearchView.swift', 'Views/CategoryEditorView.swift', 'Views/FullScreenTextView.swift',
+    'Views/ItemEditorView.swift', 'Views/UserProfilesView.swift',
+    'Views/SpeechAndSoundSettingsView.swift',
 )]
 errors = []
 for path in files:

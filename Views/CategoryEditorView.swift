@@ -12,79 +12,67 @@ struct CategoryEditorView: View {
     @State private var selectedColorHex = "#1E73F2"
     @State private var saveError: String?
 
-    private let icons: [(symbol: String, title: String)] = [
-        ("folder.fill", "Dossier"), ("bubble.left.fill", "Conversation"), ("tag.fill", "Étiquette"),
-        ("star.fill", "Étoile"), ("heart.fill", "Cœur"), ("house.fill", "Maison"),
-        ("person.fill", "Personne"), ("figure.walk", "Déplacement"), ("cart.fill", "Courses"),
-        ("fork.knife", "Repas"), ("pills.fill", "Santé"), ("book.fill", "Livre"),
-        ("briefcase.fill", "Travail"), ("globe.europe.africa.fill", "Monde"), ("tv.fill", "Télévision"), ("gift.fill", "Cadeau")
-    ]
-    private let colors: [(hex: String, title: String)] = [
-        ("#1E73F2", "Bleu"), ("#30D158", "Vert"), ("#FF9F0A", "Orange"), ("#40CBE0", "Turquoise"),
-        ("#FF375F", "Rose"), ("#BF5AF2", "Violet"), ("#5E5CE6", "Indigo"), ("#FFD60A", "Jaune"),
-        ("#AC8E68", "Brun"), ("#64D2FF", "Bleu ciel"), ("#FF453A", "Rouge"), ("#8E8E93", "Gris")
+    private let icons: [YAMIconChoice] = [
+        YAMIconChoice(symbol: "folder.fill", title: "Dossier"),
+        YAMIconChoice(symbol: "bubble.left.fill", title: "Conversation"),
+        YAMIconChoice(symbol: "tag.fill", title: "Étiquette"),
+        YAMIconChoice(symbol: "star.fill", title: "Étoile"),
+        YAMIconChoice(symbol: "heart.fill", title: "Cœur"),
+        YAMIconChoice(symbol: "house.fill", title: "Maison"),
+        YAMIconChoice(symbol: "person.fill", title: "Personne"),
+        YAMIconChoice(symbol: "figure.walk", title: "Déplacement"),
+        YAMIconChoice(symbol: "cart.fill", title: "Courses"),
+        YAMIconChoice(symbol: "fork.knife", title: "Repas"),
+        YAMIconChoice(symbol: "pills.fill", title: "Santé"),
+        YAMIconChoice(symbol: "book.fill", title: "Livre"),
+        YAMIconChoice(symbol: "briefcase.fill", title: "Travail"),
+        YAMIconChoice(symbol: "globe.europe.africa.fill", title: "Monde"),
+        YAMIconChoice(symbol: "tv.fill", title: "Télévision"),
+        YAMIconChoice(symbol: "gift.fill", title: "Cadeau"),
     ]
     private var theme: AppTheme { themeManager.currentTheme }
 
     var body: some View {
         NavigationStack {
             Form {
-                Section("Aperçu") {
-                    Label(name.isEmpty ? "Votre catégorie" : name, systemImage: selectedIcon)
-                        .font(.body.weight(.semibold))
-                        .foregroundStyle(theme.primaryTextColor)
-                        .padding(YAMSpacing.medium)
-                        .frame(maxWidth: .infinity, minHeight: 48, alignment: .leading)
-                        .background(Color(hex: selectedColorHex).opacity(0.12), in: RoundedRectangle(cornerRadius: theme.buttonCornerRadius))
+                Section {
+                    previewRow
+                        .listRowBackground(Color.clear)
+                } header: {
+                    Text("Aperçu")
                 }
-                Section("Nom") {
+
+                Section {
                     TextField("Exemple : Musique, Émotions…", text: $name, axis: .vertical)
                         .font(.body)
                         .accessibilityLabel("Nom de la catégorie")
+                } header: {
+                    Text("Nom")
+                } footer: {
+                    Text("Renommer une catégorie conserve son identifiant et toutes les phrases qui y sont rattachées.")
                 }
-                Section("Couleur") {
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 48), spacing: YAMSpacing.medium)], spacing: YAMSpacing.medium) {
-                        ForEach(colors, id: \.hex) { color in
-                            Button { selectedColorHex = color.hex } label: {
-                                Circle().fill(Color(hex: color.hex))
-                                    .frame(width: 34, height: 34)
-                                    .overlay {
-                                        if selectedColorHex == color.hex {
-                                            Image(systemName: "checkmark.circle.fill")
-                                                .symbolRenderingMode(.palette)
-                                                .foregroundStyle(.white, .black)
-                                        }
-                                    }
-                                    .frame(width: YAMSpacing.minimumTarget, height: YAMSpacing.minimumTarget)
-                                    .contentShape(Rectangle())
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityLabel(color.title)
-                            .accessibilityAddTraits(selectedColorHex == color.hex ? [.isSelected] : [])
-                        }
-                    }
+
+                Section {
+                    YAMIconChoiceGrid(selection: $selectedIcon, choices: icons)
+                } header: {
+                    Text("Icône")
                 }
-                Section("Icône") {
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 56), spacing: YAMSpacing.medium)], spacing: YAMSpacing.medium) {
-                        ForEach(icons, id: \.symbol) { icon in
-                            Button { selectedIcon = icon.symbol } label: {
-                                Image(systemName: icon.symbol)
-                                    .font(.title2)
-                                    .foregroundStyle(selectedIcon == icon.symbol ? theme.onAccentColor : theme.primaryTextColor)
-                                    .frame(width: YAMSpacing.minimumTarget, height: YAMSpacing.minimumTarget)
-                                    .background(selectedIcon == icon.symbol ? theme.accentColor : theme.secondaryCardBackground,
-                                                in: RoundedRectangle(cornerRadius: theme.buttonCornerRadius))
-                            }
-                            .buttonStyle(.yamPress)
-                            .accessibilityLabel(icon.title)
-                            .accessibilityAddTraits(selectedIcon == icon.symbol ? [.isSelected] : [])
-                        }
-                    }
+
+                Section {
+                    YAMSwatchGrid(selection: $selectedColorHex)
+                } header: {
+                    Text("Couleur")
                 }
+
                 if let saveError {
-                    Section { Label(saveError, systemImage: "exclamationmark.triangle") }
+                    Section {
+                        Label(saveError, systemImage: "exclamationmark.triangle")
+                            .font(.footnote)
+                            .foregroundStyle(theme.primaryTextColor)
+                    }
                 }
             }
+            .listSectionSpacing(.compact)
             .navigationTitle(existingCategory == nil ? "Nouvelle catégorie" : "Modifier la catégorie")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -103,6 +91,32 @@ struct CategoryEditorView: View {
             }
         }
         .tint(theme.accentColor)
+    }
+
+    /// L’aperçu reprend le dessin des tuiles de la colonne Catégories, mais sans modèle
+    /// éphémère : il se contente des valeurs en cours de saisie.
+    private var previewRow: some View {
+        HStack(spacing: YAMSpacing.medium) {
+            Image(systemName: selectedIcon)
+                .font(.footnote.weight(theme.iconWeight))
+                .foregroundStyle(theme.accentColor)
+                .frame(width: 26, height: 30)
+                .background(Color(hex: selectedColorHex).opacity(0.12), in: RoundedRectangle(cornerRadius: 8))
+                .accessibilityHidden(true)
+            Text(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Votre catégorie" : name)
+                .font(.system(.callout, design: theme.fontDesign, weight: .semibold))
+                .foregroundStyle(theme.primaryTextColor)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: YAMSpacing.medium)
+        }
+        .padding(.horizontal, 10)
+        .frame(maxWidth: .infinity, minHeight: YAMLayout.rowHeight)
+        .background(
+            Color(hex: selectedColorHex).opacity(0.12),
+            in: RoundedRectangle(cornerRadius: theme.buttonCornerRadius)
+        )
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Aperçu de la catégorie \(name.isEmpty ? "sans nom" : name)")
     }
 
     private func saveCategory() {

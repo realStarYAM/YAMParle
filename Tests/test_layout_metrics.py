@@ -14,12 +14,27 @@ COMPOSER = (ROOT / 'Components/CommunicationComposer.swift').read_text()
 MAIN = (ROOT / 'Views/MainAACView.swift').read_text()
 SETTINGS = (ROOT / 'Views/SettingsView.swift').read_text()
 
+# Écrans conservés, repris à la seconde passe : mêmes règles de densité et d’accessibilité.
+EDITOR = (ROOT / 'Views/ItemEditorView.swift').read_text()
+PROFILES = (ROOT / 'Views/UserProfilesView.swift').read_text()
+VOICE = (ROOT / 'Views/SpeechAndSoundSettingsView.swift').read_text()
+CATEGORIES = (ROOT / 'Views/CategoryEditorView.swift').read_text()
+
 CORE_FILES = {
     'Components/YAMDesignSystem.swift': DESIGN,
     'Components/CommunicationComposer.swift': COMPOSER,
     'Views/MainAACView.swift': MAIN,
     'Views/SettingsView.swift': SETTINGS,
 }
+
+SECOND_PASS_FILES = {
+    'Views/ItemEditorView.swift': EDITOR,
+    'Views/UserProfilesView.swift': PROFILES,
+    'Views/SpeechAndSoundSettingsView.swift': VOICE,
+    'Views/CategoryEditorView.swift': CATEGORIES,
+}
+
+SCANNED_FILES = {**CORE_FILES, **SECOND_PASS_FILES}
 
 
 def _section_body(section):
@@ -109,12 +124,12 @@ class PresentationTests(unittest.TestCase):
 
 class AccessibilityTests(unittest.TestCase):
     def test_no_hard_coded_minimum_heights_in_core_files(self):
-        for name, source in CORE_FILES.items():
+        for name, source in SCANNED_FILES.items():
             for match in re.finditer(r'minHeight:\s*(\d+)', source):
                 self.fail(f'{name}: minHeight codé en dur ({match.group(1)}) au lieu d’un jeton')
 
     def test_fonts_still_scale_with_dynamic_type(self):
-        for name, source in CORE_FILES.items():
+        for name, source in SCANNED_FILES.items():
             for match in re.finditer(r'\.font\(\.system\(size:\s*[\d.]+', source):
                 self.fail(f'{name}: taille de police figée ({match.group(0)}) — Dynamic Type perdu')
         self.assertIn('@ScaledMetric', DESIGN)
@@ -122,16 +137,24 @@ class AccessibilityTests(unittest.TestCase):
         self.assertIn('isAccessibilitySize', MAIN)
 
     def test_voiceover_labels_survive(self):
-        combined = DESIGN + COMPOSER + MAIN + SETTINGS
+        combined = ''.join(SCANNED_FILES.values())
         minimums = {
-            'accessibilityLabel': 5,
-            'accessibilityHint': 3,
+            'accessibilityLabel': 12,
+            'accessibilityHint': 5,
             'accessibilityAddTraits': 4,
             'accessibilityValue': 1,
             'accessibilityAction': 2,
         }
         for label, minimum in minimums.items():
             self.assertGreaterEqual(combined.count(label), minimum, f'{label} semble avoir disparu')
+
+    def test_second_pass_files_stay_on_tokens(self):
+        """La passe 2 ne réintroduit ni hauteur fixe ni couleur système codée en dur."""
+        for name, source in SECOND_PASS_FILES.items():
+            with self.subTest(view=name):
+                self.assertIn('YAMSpacing', source, f'{name} ne suit plus le rythme partagé')
+                for match in re.finditer(r'Color\(hex: "#[0-9A-Fa-f]{6}"\)', source):
+                    self.fail(f'{name}: teinte figée {match.group(0)} hors des jetons du thème')
 
 
 class SettingsRowTests(unittest.TestCase):
